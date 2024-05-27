@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2024  Konnected Inc.
+ * Copyright (C) 2024  Gelidus Research
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,34 +19,38 @@
 #pragma once
 
 #include "esphome/core/component.h"
-#include "esphome/components/binary/light/binary_light_output.h"
+#include "esphome/components/light/light_output.h"
 #include "../gdolib.h"
 
 namespace esphome {
 namespace secplus_gdo {
 
-class GDOLight : public binary::BinaryLightOutput, public Component {
-    public:
-        void setup_state(light::LightState *state) override { this->state_ = state; }
+class GDOLight : public light::LightOutput, public Component {
+ public:
+  void setup_state(light::LightState *state) override { this->state_ = state; }
+  light::LightTraits get_traits() override {
+    auto traits = light::LightTraits();
+    traits.set_supported_color_modes({light::ColorMode::ON_OFF});
+    return traits;
+  }
+  void write_state(light::LightState *state) override {
+    bool binary;
+    state->current_values_as_binary(&binary);
+    if (binary)
+      gdo_light_on();
+    else
+      gdo_light_off();
+  }
 
-        void write_state(light::LightState *state) override {
-            bool binary;
-            state->current_values_as_binary(&binary);
-            if (binary)
-                gdo_light_on();
-            else
-                gdo_light_off();
-        }
+  void set_state(gdo_light_state_t state) {
+    bool is_on = state == GDO_LIGHT_STATE_ON;
+    this->state_->current_values.set_state(is_on);
+    this->state_->remote_values.set_state(is_on);
+    this->state_->publish_state();
+  }
 
-        void set_state(gdo_light_state_t state) {
-            bool is_on = state == GDO_LIGHT_STATE_ON;
-            this->state_->current_values.set_state(is_on);
-            this->state_->remote_values.set_state(is_on);
-            this->state_->publish_state();
-        }
-
-    private:
-        light::LightState *state_{nullptr};
-    }; // GDOLight
-} // namespace secplus_gdo
-} // namespace esphome
+ private:
+  light::LightState *state_{nullptr};
+};  // GDOLight
+}  // namespace secplus_gdo
+}  // namespace esphome

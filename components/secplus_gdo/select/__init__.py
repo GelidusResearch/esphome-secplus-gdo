@@ -3,7 +3,12 @@ import esphome.config_validation as cv
 from esphome.components import select
 from esphome.const import CONF_ID, CONF_INITIAL_OPTION
 
-from .. import CONF_SECPLUS_GDO_ID, SECPLUS_GDO, SECPLUS_GDO_CONFIG_SCHEMA, secplus_gdo_ns
+from .. import (
+    CONF_SECPLUS_GDO_ID,
+    SECPLUS_GDO,
+    SECPLUS_GDO_CONFIG_SCHEMA,
+    secplus_gdo_ns,
+)
 
 DEPENDENCIES = ["secplus_gdo"]
 
@@ -16,11 +21,14 @@ CONFIG_SCHEMA = (
     .extend(
         {
             cv.GenerateID(CONF_SECPLUS_GDO_ID): cv.use_id(SECPLUS_GDO),
-            cv.Optional(CONF_INITIAL_OPTION, "auto"): cv.one_of(*CONF_PROTOCOL_SELECT_OPTIONS, lower=True),
+            cv.Optional(CONF_INITIAL_OPTION, "auto"): cv.one_of(
+                *CONF_PROTOCOL_SELECT_OPTIONS, lower=True
+            ),
         }
     )
     .extend(SECPLUS_GDO_CONFIG_SCHEMA)
 )
+
 
 async def to_code(config):
     s = await select.new_select(config, options=CONF_PROTOCOL_SELECT_OPTIONS)

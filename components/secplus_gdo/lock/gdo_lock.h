@@ -24,37 +24,37 @@
 namespace esphome {
 namespace secplus_gdo {
 
-    class GDOLock : public lock::Lock, public Component {
-        public:
-        void set_state(gdo_lock_state_t state) {
-            if (state == GDO_LOCK_STATE_LOCKED && this->state == lock::LockState::LOCK_STATE_LOCKED) {
-                return;
-            }
-            if (state == GDO_LOCK_STATE_UNLOCKED && this->state == lock::LockState::LOCK_STATE_UNLOCKED) {
-                return;
-            }
+class GDOLock : public lock::Lock, public Component {
+ public:
+  void set_state(gdo_lock_state_t state) {
+    if (state == GDO_LOCK_STATE_LOCKED && this->state == lock::LockState::LOCK_STATE_LOCKED) {
+      return;
+    }
+    if (state == GDO_LOCK_STATE_UNLOCKED && this->state == lock::LockState::LOCK_STATE_UNLOCKED) {
+      return;
+    }
 
-            auto call = this->make_call();
-            if (state == GDO_LOCK_STATE_LOCKED) {
-                call.set_state(lock::LockState::LOCK_STATE_LOCKED);
-            } else if (state == GDO_LOCK_STATE_UNLOCKED) {
-                call.set_state(lock::LockState::LOCK_STATE_UNLOCKED);
-            }
-            this->control(call);
-        }
+    auto call = this->make_call();
+    if (state == GDO_LOCK_STATE_LOCKED) {
+      call.set_state(lock::LockState::LOCK_STATE_LOCKED);
+    } else if (state == GDO_LOCK_STATE_UNLOCKED) {
+      call.set_state(lock::LockState::LOCK_STATE_UNLOCKED);
+    }
+    this->control(call);
+  }
 
-        void control(const lock::LockCall& call) override {
-            auto state = *call.get_state();
+  void control(const lock::LockCall &call) override {
+    auto state = *call.get_state();
 
-            if (state == lock::LockState::LOCK_STATE_LOCKED) {
-                gdo_lock();
-            } else if (state == lock::LockState::LOCK_STATE_UNLOCKED) {
-                gdo_unlock();
-            }
+    if (state == lock::LockState::LOCK_STATE_LOCKED) {
+      gdo_lock();
+    } else if (state == lock::LockState::LOCK_STATE_UNLOCKED) {
+      gdo_unlock();
+    }
 
-            this->publish_state(state);
-        }
-    };
+    this->publish_state(state);
+  }
+};
 
-} // namespace secplus_gdo
-} // namespace esphome
+}  // namespace secplus_gdo
+}  // namespace esphome

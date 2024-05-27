@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-# pragma once
+#pragma once
 
 #include "esphome/core/component.h"
 #include "esphome/core/preferences.h"
@@ -25,44 +25,44 @@ namespace esphome {
 namespace secplus_gdo {
 
 class GDONumber : public number::Number, public Component {
-    public:
-        void dump_config() override {}
-        void setup() override {
-            float value;
-            this->pref_ = global_preferences->make_preference<float>(this->get_object_id_hash());
-            if (!this->pref_.load(&value)) {
-                value = 0;
-            }
+ public:
+  void dump_config() override {}
+  void setup() override {
+    float value;
+    this->pref_ = global_preferences->make_preference<float>(this->get_object_id_hash());
+    if (!this->pref_.load(&value)) {
+      value = 0;
+    }
 
-            this->control(value);
-        }
+    this->control(value);
+  }
 
-        void update_state(float value, bool replace = false) {
-            if (this->state > 0 && !replace) {
-                return;
-            }
+  void update_state(float value, bool replace = false) {
+    if (this->state > 0 && !replace) {
+      return;
+    }
 
-            this->state = value;
-            this->publish_state(value);
-            this->pref_.save(&value);
-        }
+    this->state = value;
+    this->publish_state(value);
+    this->pref_.save(&value);
+  }
 
-        void control(float value) override {
-            if (value == this->state) {
-                return;
-            }
+  void control(float value) override {
+    if (value == this->state) {
+      return;
+    }
 
-            if (this->f_control) {
-                this->f_control(value);
-                this->update_state(value);
-            }
-        }
+    if (this->f_control) {
+      this->f_control(value);
+      this->update_state(value);
+    }
+  }
 
-        void set_control_function(std::function<int(float)> f) { f_control = f; }
+  void set_control_function(std::function<int(float)> f) { f_control = f; }
 
-    protected:
-        ESPPreferenceObject pref_;
-        std::function<int(float)> f_control{nullptr};
-    };
-} // namespace secplus_gdo
-} // namespace esphome
+ protected:
+  ESPPreferenceObject pref_;
+  std::function<int(float)> f_control{nullptr};
+};
+}  // namespace secplus_gdo
+}  // namespace esphome

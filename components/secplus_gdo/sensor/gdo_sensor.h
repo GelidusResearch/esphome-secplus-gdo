@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-# pragma once
+#pragma once
 
 #include "esphome/core/component.h"
 #include "esphome/components/sensor/sensor.h"
@@ -25,5 +25,5 @@ namespace secplus_gdo {
 
 class GDOStat : public sensor::Sensor, public Component {};
 
-} // namespace secplus_gdo
-} // namespace esphome
+}  // namespace secplus_gdo
+}  // namespace esphome

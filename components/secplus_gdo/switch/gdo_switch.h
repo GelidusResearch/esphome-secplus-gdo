@@ -14,16 +14,16 @@
 namespace esphome {
 namespace secplus_gdo {
 
-    class GDOSwitch : public switch_::Switch, public Component {
-    public:
-        void write_state(bool state) override {
-            if (state) {
-                gdo_activate_learn();
-            } else {
-                gdo_deactivate_learn();
-            }
-        }
-    };
+class GDOSwitch : public switch_::Switch, public Component {
+ public:
+  void write_state(bool state) override {
+    if (state) {
+      gdo_activate_learn();
+    } else {
+      gdo_deactivate_learn();
+    }
+  }
+};
 
-} // namespace secplus_gdo
-} // namespace esphome
+}  // namespace secplus_gdo
+}  // namespace esphome

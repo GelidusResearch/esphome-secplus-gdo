@@ -26,35 +26,35 @@ namespace esphome {
 namespace secplus_gdo {
 
 using namespace esphome::cover;
-    class GDODoor : public cover::Cover, public Component {
-    public:
-        cover::CoverTraits get_traits() override {
-            auto traits = CoverTraits();
-            traits.set_supports_stop(true);
-            traits.set_supports_toggle(true);
-            traits.set_supports_position(true);
-            return traits;
-        }
+class GDODoor : public cover::Cover, public Component {
+ public:
+  cover::CoverTraits get_traits() override {
+    auto traits = CoverTraits();
+    traits.set_supports_stop(true);
+    traits.set_supports_toggle(true);
+    traits.set_supports_position(true);
+    return traits;
+  }
 
-        void register_door_closing_warn_start_trigger(CoverClosingStartTrigger *trigger) {
-            this->pre_close_start_trigger = trigger;
-        }
+  void register_door_closing_warn_start_trigger(CoverClosingStartTrigger *trigger) {
+    this->pre_close_start_trigger = trigger;
+  }
 
-        void register_door_closing_warn_end_trigger(CoverClosingEndTrigger *trigger) {
-            this->pre_close_end_trigger = trigger;
-        }
+  void register_door_closing_warn_end_trigger(CoverClosingEndTrigger *trigger) {
+    this->pre_close_end_trigger = trigger;
+  }
 
-        void start_pre_close(uint32_t pos = 0);
-        void set_pre_close_warning_duration(uint32_t ms) { this->pre_close_duration_ = ms; }
-        void set_state(gdo_door_state_t state, float position);
+  void start_pre_close(uint32_t pos = 0);
+  void set_pre_close_warning_duration(uint32_t ms) { this->pre_close_duration_ = ms; }
+  void set_state(gdo_door_state_t state, float position);
 
-    protected:
-        void control(const cover::CoverCall& call);
+ protected:
+  void control(const cover::CoverCall &call);
 
-        CoverClosingStartTrigger *pre_close_start_trigger{nullptr};
-        CoverClosingEndTrigger   *pre_close_end_trigger{nullptr};
-        uint32_t                 pre_close_duration_{0};
-        bool                     pre_close_active_{false};
-    };
-} // namespace secplus_gdo
-} // namespace esphome
+  CoverClosingStartTrigger *pre_close_start_trigger{nullptr};
+  CoverClosingEndTrigger *pre_close_end_trigger{nullptr};
+  uint32_t pre_close_duration_{0};
+  bool pre_close_active_{false};
+};
+}  // namespace secplus_gdo
+}  // namespace esphome

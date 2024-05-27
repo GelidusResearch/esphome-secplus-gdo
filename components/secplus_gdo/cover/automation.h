@@ -4,16 +4,16 @@
 
 namespace esphome {
 namespace secplus_gdo {
-    class GDODoor;
+class GDODoor;
 
-    class CoverClosingStartTrigger : public Trigger<> {
-    public:
-        CoverClosingStartTrigger(GDODoor* gdo_door) {}
-    };
+class CoverClosingStartTrigger : public Trigger<> {
+ public:
+  CoverClosingStartTrigger(GDODoor *gdo_door) {}
+};
 
-    class CoverClosingEndTrigger : public Trigger<> {
-    public:
-        CoverClosingEndTrigger(GDODoor* gdo_door) {}
-    };
-} // namespace secplus_gdo
-} // namespace esphome
+class CoverClosingEndTrigger : public Trigger<> {
+ public:
+  CoverClosingEndTrigger(GDODoor *gdo_door) {}
+};
+}  // namespace secplus_gdo
+}  // namespace esphome

@@ -35,7 +35,7 @@ TYPES = {
     "paired_devices_remotes": "register_paired_remotes",
     "paired_devices_keypads": "register_paired_keypads",
     "paired_devices_wall_controls": "register_paired_wall_controls",
-    "paired_devices_accessories":"register_paired_accessories",
+    "paired_devices_accessories": "register_paired_accessories",
 }
 
 
@@ -56,5 +56,12 @@ async def to_code(config):
     await cg.register_component(var, config)
     parent = await cg.get_variable(config[CONF_SECPLUS_GDO_ID])
     fcall = str(parent) + "->" + str(TYPES[config[CONF_TYPE]])
-    text = fcall + "(std::bind(&" + str(GDOStat) + "::publish_state," + str(config[CONF_ID]) + ",std::placeholders::_1))"
+    text = (
+        fcall
+        + "(std::bind(&"
+        + str(GDOStat)
+        + "::publish_state,"
+        + str(config[CONF_ID])
+        + ",std::placeholders::_1))"
+    )
     cg.add((cg.RawExpression(text)))

@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-# pragma once
+#pragma once
 
 #include "esphome/core/component.h"
 #include "esphome/components/binary_sensor/binary_sensor.h"
@@ -25,5 +25,5 @@ namespace secplus_gdo {
 
 class GDOBinarySensor : public binary_sensor::BinarySensor, public Component {};
 
-} // namespace secplus_gdo
-} // namespace esphome
+}  // namespace secplus_gdo
+}  // namespace esphome

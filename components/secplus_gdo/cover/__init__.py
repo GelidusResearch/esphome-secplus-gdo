@@ -44,7 +44,9 @@ CONF_PRE_CLOSE_WARNING_END = "pre_close_warning_end"
 CONFIG_SCHEMA = cover.COVER_SCHEMA.extend(
     {
         cv.GenerateID(): cv.declare_id(GDODoor),
-        cv.Optional(CONF_PRE_CLOSE_WARNING_DURATION, default=0): cv.positive_time_period_milliseconds,
+        cv.Optional(
+            CONF_PRE_CLOSE_WARNING_DURATION
+        ): cv.positive_time_period_milliseconds,
         cv.Optional(CONF_PRE_CLOSE_WARNING_START): automation.validate_automation(
             {cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(CoverClosingStartTrigger)}
         ),
@@ -60,9 +62,18 @@ async def to_code(config):
     await cg.register_component(var, config)
     await cover.register_cover(var, config)
     parent = await cg.get_variable(config[CONF_SECPLUS_GDO_ID])
-    text = "std::bind(&" + str(GDODoor) + "::set_state," + str(config[CONF_ID]) + ",std::placeholders::_1,std::placeholders::_2)"
+    text = (
+        "std::bind(&"
+        + str(GDODoor)
+        + "::set_state,"
+        + str(config[CONF_ID])
+        + ",std::placeholders::_1,std::placeholders::_2)"
+    )
     cg.add(parent.register_door(cg.RawExpression(text)))
-    cg.add(var.set_pre_close_warning_duration(config[CONF_PRE_CLOSE_WARNING_DURATION]))
+    if CONF_PRE_CLOSE_WARNING_DURATION in config:
+        cg.add(
+            var.set_pre_close_warning_duration(config[CONF_PRE_CLOSE_WARNING_DURATION])
+        )
     for conf in config.get(CONF_PRE_CLOSE_WARNING_START, []):
         trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)
         await automation.build_automation(trigger, [], conf)
@@ -71,4 +82,3 @@ async def to_code(config):
         trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)
         await automation.build_automation(trigger, [], conf)
         cg.add(var.register_door_closing_warn_end_trigger(trigger))
-

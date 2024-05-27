@@ -44,6 +44,7 @@ CONFIG_SCHEMA = (
     .extend(SECPLUS_GDO_CONFIG_SCHEMA)
 )
 
+
 async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
     await number.register_number(var, config, min_value=0, max_value=65535, step=1)
