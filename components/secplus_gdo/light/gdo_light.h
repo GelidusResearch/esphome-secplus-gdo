@@ -20,7 +20,7 @@
 
 #include "esphome/core/component.h"
 #include "esphome/components/light/light_output.h"
-#include "../gdolib.h"
+#include "../gdo.h"
 
 namespace esphome {
 namespace secplus_gdo {
@@ -49,8 +49,15 @@ class GDOLight : public light::LightOutput, public Component {
     this->state_->publish_state();
   }
 
+  void set_sync_state(bool synced) {
+	this->synced_ = synced;
+  }
+
  private:
-  light::LightState *state_{nullptr};
+        light::LightState *state_{nullptr};
+        gdo_light_state_t light_state_{GDO_LIGHT_STATE_MAX};
+  static constexpr auto TAG{"GDOLight"};
+  bool synced_{false};
 };  // GDOLight
 }  // namespace secplus_gdo
 }  // namespace esphome
