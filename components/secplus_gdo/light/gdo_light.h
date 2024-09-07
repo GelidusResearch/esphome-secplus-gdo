@@ -20,7 +20,7 @@
 
 #include "esphome/core/component.h"
 #include "esphome/components/light/light_output.h"
-#include "../gdolib.h"
+#include "../gdo.h"
 
 namespace esphome {
 namespace secplus_gdo {

@@ -21,7 +21,7 @@
 #include "number/gdo_number.h"
 #include "select/gdo_select.h"
 #include "light/gdo_light.h"
-#include "gdolib.h"
+#include "gdo.h"
 
 namespace esphome {
 namespace secplus_gdo {
