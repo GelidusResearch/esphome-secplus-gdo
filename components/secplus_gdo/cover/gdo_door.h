@@ -20,7 +20,7 @@
 #include "esphome/components/cover/cover.h"
 #include "esphome/core/component.h"
 #include "automation.h"
-#include "../gdo.h"
+#include "gdo.h"
 
 namespace esphome {
 namespace secplus_gdo {
@@ -44,7 +44,7 @@ class GDODoor : public cover::Cover, public Component {
     this->pre_close_end_trigger = trigger;
   }
 
-  void start_pre_close(uint32_t pos = 0, bool toggle = false);
+  void start_pre_close(uint32_t pos = 0);
   void set_pre_close_warning_duration(uint32_t ms) { this->pre_close_duration_ = ms; }
   void set_state(gdo_door_state_t state, float position);
 

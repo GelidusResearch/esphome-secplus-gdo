@@ -1,7 +1,10 @@
+#include "esphome/core/log.h"
 #include "gdo_door.h"
 
 namespace esphome {
 namespace secplus_gdo {
+
+const char *TAG = "gdo_cover";
 
 void GDODoor::set_state(gdo_door_state_t state, float position) {
   if (this->pre_close_active_) {
@@ -48,7 +51,7 @@ void GDODoor::set_state(gdo_door_state_t state, float position) {
   this->publish_state(false);
 }
 
-void GDODoor::start_pre_close(uint32_t pos, bool toggle) {
+void GDODoor::start_pre_close(uint32_t pos) {
   if (this->pre_close_active_) {
     return;
   }
@@ -65,11 +68,11 @@ void GDODoor::start_pre_close(uint32_t pos, bool toggle) {
       this->pre_close_end_trigger->trigger();
     }
 
-    if (toggle) {
-        gdo_door_toggle();
-    } else if (pos > 0) {
+    if (pos > 0) {
+      ESP_LOGD(TAG, "Moving door to position %d", pos);
       gdo_door_move_to_target(pos);
     } else {
+      ESP_LOGD(TAG, "Closing door");
       gdo_door_close();
     }
   });
@@ -93,7 +96,7 @@ void GDODoor::control(const cover::CoverCall &call) {
 
   if (call.get_toggle()) {
     if (this->position != COVER_CLOSED) {
-      this->start_pre_close();
+      this->start_pre_close(0);
     } else {
       gdo_door_toggle();
     }
