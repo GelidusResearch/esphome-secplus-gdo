@@ -19,12 +19,12 @@
 #include "cover/gdo_door.h"
 #include "esphome/core/component.h"
 #include "esphome/core/defines.h"
+#include "gdo.h"
 #include "light/gdo_light.h"
 #include "lock/gdo_lock.h"
 #include "number/gdo_number.h"
 #include "select/gdo_select.h"
 #include "switch/gdo_switch.h"
-#include "gdo.h"
 
 namespace esphome {
 namespace secplus_gdo {
@@ -141,6 +141,8 @@ public:
   }
 
   void register_toggle_only(GDOSwitch *sw) { this->toggle_only_switch_ = sw; }
+
+  void set_sync_state(bool synced);
 
 protected:
   gdo_status_t status_{};

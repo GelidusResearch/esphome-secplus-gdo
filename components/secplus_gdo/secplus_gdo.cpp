@@ -50,7 +50,7 @@ static void gdo_event_handler(const gdo_status_t *status, gdo_cb_event_t event,
     } else {
       gdo->set_protocol_state(status->protocol);
     }
-
+    gdo->set_sync_state(status->synced);
     break;
   case GDO_CB_EVENT_LIGHT:
     gdo->set_light_state(status->light);
@@ -154,6 +154,20 @@ void GDOComponent::setup() {
         this->cancel_interval("gdo_start");
       }
     });
+  }
+}
+
+void GDOComponent::set_sync_state(bool synced) {
+  if (this->door_) {
+    this->door_->set_sync_state(synced);
+  }
+
+  if (this->light_) {
+    this->light_->set_sync_state(synced);
+  }
+
+  if (this->lock_) {
+    this->lock_->set_sync_state(synced);
   }
 }
 

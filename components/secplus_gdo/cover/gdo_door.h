@@ -24,7 +24,6 @@
 
 namespace esphome {
 namespace secplus_gdo {
-  
 
 using namespace esphome::cover;
 class GDODoor : public cover::Cover, public Component {
@@ -43,6 +42,7 @@ public:
   void register_door_closing_warn_end_trigger(CoverClosingEndTrigger *trigger) {
     this->pre_close_end_trigger = trigger;
   }
+  void set_sync_state(bool synced) { this->synced_ = synced; }
   void do_action(const cover::CoverCall &call);
   void do_action_after_warning(const cover::CoverCall &call);
   void set_pre_close_warning_duration(uint32_t ms) {
@@ -61,6 +61,7 @@ protected:
   optional<float> target_position_{0};
   CoverOperation prev_operation{COVER_OPERATION_IDLE};
   gdo_door_state_t state_{GDO_DOOR_STATE_MAX};
+  bool synced_{false};
 };
 } // namespace secplus_gdo
 } // namespace esphome

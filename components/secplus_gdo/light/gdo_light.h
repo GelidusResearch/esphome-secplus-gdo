@@ -34,6 +34,9 @@ public:
     return traits;
   }
   void write_state(light::LightState *state) override {
+    if (!this->synced_) {
+      return;
+    }
     bool binary;
     state->current_values_as_binary(&binary);
     if (binary)
@@ -55,9 +58,12 @@ public:
     this->state_->publish_state();
   }
 
+  void set_sync_state(bool synced) { this->synced_ = synced; }
+
 private:
   light::LightState *state_{nullptr};
   gdo_light_state_t light_state_{GDO_LIGHT_STATE_MAX};
+  bool synced_{false};
   static constexpr auto TAG{"GDOLight"};
 }; // GDOLight
 } // namespace secplus_gdo
