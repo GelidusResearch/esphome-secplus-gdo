@@ -77,6 +77,9 @@ public:
     }
   }
 
+
+  void register_sync(std::function<void(bool)> f) { f_sync = f; }
+
   void register_openings(std::function<void(uint16_t)> f) { f_openings = f; }
   void set_openings(uint16_t openings) {
     if (f_openings) {
@@ -153,6 +156,7 @@ protected:
   std::function<void(bool)> f_obstruction{nullptr};
   std::function<void(bool)> f_button{nullptr};
   std::function<void(bool)> f_motor{nullptr};
+          std::function<void(bool)>                    f_sync{nullptr};
   GDODoor *door_{nullptr};
   GDOLight *light_{nullptr};
   GDOLock *lock_{nullptr};

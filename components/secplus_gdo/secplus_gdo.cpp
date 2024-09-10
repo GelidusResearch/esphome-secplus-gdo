@@ -173,6 +173,10 @@ void GDOComponent::set_sync_state(bool synced) {
   if (this->lock_) {
     this->lock_->set_sync_state(synced);
   }
+  
+  if (this->f_sync) {
+    this->f_sync(synced);
+  }
 }
 
 void GDOComponent::dump_config() {
