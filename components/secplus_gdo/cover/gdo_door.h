@@ -22,39 +22,44 @@
 #include "automation.h"
 #include "gdo.h"
 
-namespace esphome {
-namespace secplus_gdo {
+namespace esphome
+{
+  namespace secplus_gdo
+  {
 
-using namespace esphome::cover;
-class GDODoor : public cover::Cover, public Component {
- public:
-  cover::CoverTraits get_traits() override {
-    auto traits = CoverTraits();
-    traits.set_supports_stop(true);
-    traits.set_supports_toggle(true);
-    traits.set_supports_position(true);
-    return traits;
-  }
+    using namespace esphome::cover;
+    class GDODoor : public cover::Cover, public Component
+    {
+    public:
+      cover::CoverTraits get_traits() override
+      {
+        auto traits = CoverTraits();
+        traits.set_supports_stop(true);
+        traits.set_supports_toggle(true);
+        traits.set_supports_position(true);
+        return traits;
+      }
+      void register_door_closing_warn_start_trigger(CoverClosingStartTrigger *trigger)
+      {
+        this->pre_close_start_trigger = trigger;
+      }
+      void register_door_closing_warn_end_trigger(CoverClosingEndTrigger *trigger)
+      {
+        this->pre_close_end_trigger = trigger;
+      }
+      void do_action(const cover::CoverCall& call);
+      void do_action_after_warning(const cover::CoverCall& call);
+      void set_pre_close_warning_duration(uint32_t ms) { this->pre_close_duration_ = ms; }
+      void set_toggle_only(bool val) { this->toggle_only_ = val; }
+      void set_state(gdo_door_state_t state, float position);
 
-  void register_door_closing_warn_start_trigger(CoverClosingStartTrigger *trigger) {
-    this->pre_close_start_trigger = trigger;
-  }
-
-  void register_door_closing_warn_end_trigger(CoverClosingEndTrigger *trigger) {
-    this->pre_close_end_trigger = trigger;
-  }
-
-  void start_pre_close(uint32_t pos = 0);
-  void set_pre_close_warning_duration(uint32_t ms) { this->pre_close_duration_ = ms; }
-  void set_state(gdo_door_state_t state, float position);
-
- protected:
-  void control(const cover::CoverCall &call);
-
-  CoverClosingStartTrigger *pre_close_start_trigger{nullptr};
-  CoverClosingEndTrigger *pre_close_end_trigger{nullptr};
-  uint32_t pre_close_duration_{0};
-  bool pre_close_active_{false};
-};
-}  // namespace secplus_gdo
-}  // namespace esphome
+    protected:
+      void control(const cover::CoverCall &call);
+      CoverClosingStartTrigger *pre_close_start_trigger{nullptr};
+      CoverClosingEndTrigger *pre_close_end_trigger{nullptr};
+      uint32_t pre_close_duration_{0};
+      bool pre_close_active_{false};
+      bool toggle_only_{false};
+    };
+  } // namespace secplus_gdo
+} // namespace esphome
