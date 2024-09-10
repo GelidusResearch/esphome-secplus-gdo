@@ -24,6 +24,7 @@
 
 namespace esphome {
 namespace secplus_gdo {
+  
 
 using namespace esphome::cover;
 class GDODoor : public cover::Cover, public Component {

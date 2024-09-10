@@ -18,15 +18,15 @@
 
 #pragma once
 
-#include "esphome/core/component.h"
 #include "esphome/components/light/light_output.h"
+#include "esphome/core/component.h"
 #include "gdo.h"
 
 namespace esphome {
 namespace secplus_gdo {
 
 class GDOLight : public light::LightOutput, public Component {
- public:
+public:
   void setup_state(light::LightState *state) override { this->state_ = state; }
   light::LightTraits get_traits() override {
     auto traits = light::LightTraits();
@@ -43,14 +43,22 @@ class GDOLight : public light::LightOutput, public Component {
   }
 
   void set_state(gdo_light_state_t state) {
+    if (state == this->light_state_) {
+      return;
+    }
+
+    this->light_state_ = state;
+    ESP_LOGI(TAG, "Light state: %s", gdo_light_state_to_string(state));
     bool is_on = state == GDO_LIGHT_STATE_ON;
     this->state_->current_values.set_state(is_on);
     this->state_->remote_values.set_state(is_on);
     this->state_->publish_state();
   }
 
- private:
+private:
   light::LightState *state_{nullptr};
-};  // GDOLight
-}  // namespace secplus_gdo
-}  // namespace esphome
+  gdo_light_state_t light_state_{GDO_LIGHT_STATE_MAX};
+  static constexpr auto TAG{"GDOLight"};
+}; // GDOLight
+} // namespace secplus_gdo
+} // namespace esphome
