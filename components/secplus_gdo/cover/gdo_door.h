@@ -22,7 +22,6 @@
 #include "esphome/core/component.h"
 #include "gdo.h"
 
-
 namespace esphome {
 namespace secplus_gdo {
 
@@ -59,6 +58,8 @@ protected:
   bool pre_close_active_{false};
   bool toggle_only_{false};
   optional<float> target_position_{0};
+  CoverOperation prev_operation{COVER_OPERATION_IDLE};
+  gdo_door_state_t state_{GDO_DOOR_STATE_MAX};
 };
 } // namespace secplus_gdo
 } // namespace esphome
