@@ -19,42 +19,48 @@
 
 #include "esphome/components/lock/lock.h"
 #include "esphome/core/component.h"
-#include "../gdolib.h"
+#include "gdo.h"
 
 namespace esphome {
 namespace secplus_gdo {
 
-class GDOLock : public lock::Lock, public Component {
- public:
-  void set_state(gdo_lock_state_t state) {
-    if (state == GDO_LOCK_STATE_LOCKED && this->state == lock::LockState::LOCK_STATE_LOCKED) {
-      return;
-    }
-    if (state == GDO_LOCK_STATE_UNLOCKED && this->state == lock::LockState::LOCK_STATE_UNLOCKED) {
-      return;
-    }
+    class GDOLock : public lock::Lock, public Component {
+        public:
+        void set_state(gdo_lock_state_t state) {
+            if (state == this->lock_state_) {
+                return;
+            }
 
-    auto call = this->make_call();
-    if (state == GDO_LOCK_STATE_LOCKED) {
-      call.set_state(lock::LockState::LOCK_STATE_LOCKED);
-    } else if (state == GDO_LOCK_STATE_UNLOCKED) {
-      call.set_state(lock::LockState::LOCK_STATE_UNLOCKED);
-    }
-    this->control(call);
-  }
+            this->lock_state_ = state;
+            ESP_LOGI(TAG, "Lock state: %s", gdo_lock_state_to_string(state));
+            this->publish_state(state == GDO_LOCK_STATE_LOCKED ?
+                                         lock::LockState::LOCK_STATE_LOCKED :
+                                         lock::LockState::LOCK_STATE_UNLOCKED);
+        }
 
-  void control(const lock::LockCall &call) override {
-    auto state = *call.get_state();
+        void control(const lock::LockCall& call) override {
+            if (!this->synced_) {
+                return;
+            }
 
-    if (state == lock::LockState::LOCK_STATE_LOCKED) {
-      gdo_lock();
-    } else if (state == lock::LockState::LOCK_STATE_UNLOCKED) {
-      gdo_unlock();
-    }
+            auto state = *call.get_state();
 
-    this->publish_state(state);
-  }
-};
+            if (state == lock::LockState::LOCK_STATE_LOCKED) {
+                gdo_lock();
+            } else if (state == lock::LockState::LOCK_STATE_UNLOCKED) {
+                gdo_unlock();
+            }
+        }
 
-}  // namespace secplus_gdo
-}  // namespace esphome
+        void set_sync_state(bool synced) {
+            this->synced_ = synced;
+        }
+
+        private:
+        gdo_lock_state_t lock_state_{GDO_LOCK_STATE_MAX};
+        bool synced_{false};
+        static constexpr const char* TAG = "GDOLock";
+    };
+
+} // namespace secplus_gdo
+} // namespace esphome
