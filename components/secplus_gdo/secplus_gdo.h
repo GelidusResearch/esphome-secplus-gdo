@@ -16,13 +16,14 @@
  */
 
 #pragma once
+#include "cover/gdo_door.h"
 #include "esphome/core/component.h"
 #include "esphome/core/defines.h"
 #include "light/gdo_light.h"
+#include "lock/gdo_lock.h"
 #include "number/gdo_number.h"
 #include "select/gdo_select.h"
 #include "switch/gdo_switch.h"
-#include "cover/gdo_door.h"
 #include "gdo.h"
 
 namespace esphome {
@@ -33,6 +34,7 @@ public:
   void loop() override{};
   void dump_config() override;
   void on_shutdown() override { gdo_deinit(); }
+  void start_gdo() { start_gdo_ = true; }
   // Use Late priority so we do not start the GDO lib until all saved
   // preferences are loaded
   float get_setup_priority() const override { return setup_priority::LATE; }
@@ -89,17 +91,17 @@ public:
     }
   }
 
-  void register_light(std::function<void(gdo_light_state_t)> f) { f_light = f; }
+  void register_light(GDOLight *light) { this->light_ = light; }
   void set_light_state(gdo_light_state_t state) {
-    if (f_light) {
-      f_light(state);
+    if (this->light_) {
+      this->light_->set_state(state);
     }
   }
 
-  void register_lock(std::function<void(gdo_lock_state_t)> f) { f_lock = f; }
+  void register_lock(GDOLock *lock) { this->lock_ = lock; }
   void set_lock_state(gdo_lock_state_t state) {
-    if (f_lock) {
-      f_lock(state);
+    if (this->lock_) {
+      this->lock_->set_state(state);
     }
   }
 
@@ -150,6 +152,8 @@ protected:
   std::function<void(bool)> f_button{nullptr};
   std::function<void(bool)> f_motor{nullptr};
   GDODoor *door_{nullptr};
+  GDOLight *light_{nullptr};
+  GDOLock *lock_{nullptr};
   GDONumber *open_duration_{nullptr};
   GDONumber *close_duration_{nullptr};
   GDONumber *client_id_{nullptr};
@@ -157,6 +161,7 @@ protected:
   GDOSelect *protocol_select_{nullptr};
   GDOSwitch *learn_switch_{nullptr};
   GDOSwitch *toggle_only_switch_{nullptr};
+  bool start_gdo_{false};
 }; // GDOComponent
 } // namespace secplus_gdo
 } // namespace esphome
