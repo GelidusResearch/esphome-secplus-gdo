@@ -16,24 +16,27 @@
  */
 
 #pragma once
-#include "esphome/core/defines.h"
 #include "esphome/core/component.h"
+#include "esphome/core/defines.h"
+#include "gdo.h"
+#include "light/gdo_light.h"
 #include "number/gdo_number.h"
 #include "select/gdo_select.h"
-#include "light/gdo_light.h"
-#include "gdo.h"
 
 namespace esphome {
 namespace secplus_gdo {
 class GDOComponent : public Component {
- public:
+public:
   void setup() override;
-  void loop() override {};
+  void loop() override{};
   void dump_config() override;
-  // Use Late priority so we do not start the GDO lib until all saved preferences are loaded
+  // Use Late priority so we do not start the GDO lib until all saved
+  // preferences are loaded
   float get_setup_priority() const override { return setup_priority::LATE; }
 
-  void register_protocol_select(GDOSelect *select) { this->protocol_select_ = select; }
+  void register_protocol_select(GDOSelect *select) {
+    this->protocol_select_ = select;
+  }
   void set_protocol_state(gdo_protocol_type_t protocol) {
     if (this->protocol_select_) {
       this->protocol_select_->update_state(protocol);
@@ -75,7 +78,9 @@ class GDOComponent : public Component {
     }
   }
 
-  void register_door(std::function<void(gdo_door_state_t, float)> f) { f_door = f; }
+  void register_door(std::function<void(gdo_door_state_t, float)> f) {
+    f_door = f;
+  }
   void set_door_state(gdo_door_state_t state, float position) {
     if (f_door) {
       f_door(state, position);
@@ -117,7 +122,21 @@ class GDOComponent : public Component {
     }
   }
 
- protected:
+  void register_client_id(GDONumber *num) { client_id_ = num; }
+  void set_client_id(uint32_t num) {
+    if (client_id_) {
+      client_id_->update_state(num);
+    }
+  }
+
+  void register_rolling_code(GDONumber *num) { rolling_code_ = num; }
+  void set_rolling_code(uint32_t num) {
+    if (rolling_code_) {
+      rolling_code_->update_state(num);
+    }
+  }
+
+protected:
   gdo_status_t status_;
   std::function<void(gdo_door_state_t, float)> f_door{nullptr};
   std::function<void(gdo_lock_state_t)> f_lock{nullptr};
@@ -130,8 +149,10 @@ class GDOComponent : public Component {
   std::function<void(bool)> f_learn{nullptr};
   GDONumber *open_duration_{nullptr};
   GDONumber *close_duration_{nullptr};
+  GDONumber *client_id_{nullptr};
+  GDONumber *rolling_code_{nullptr};
   GDOSelect *protocol_select_{nullptr};
 
-};  // GDOComponent
-}  // namespace secplus_gdo
-}  // namespace esphome
+}; // GDOComponent
+} // namespace secplus_gdo
+} // namespace esphome
