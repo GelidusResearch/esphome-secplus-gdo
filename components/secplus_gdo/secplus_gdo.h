@@ -77,6 +77,9 @@ public:
     }
   }
 
+
+  void register_sync(std::function<void(bool)> f) { f_sync = f; }
+
   void register_openings(std::function<void(uint16_t)> f) { f_openings = f; }
   void set_openings(uint16_t openings) {
     if (f_openings) {
@@ -140,6 +143,13 @@ public:
     }
   }
 
+  void register_min_command_interval(GDONumber *num) { min_command_interval_ = num; }
+  void set_min_command_interval(uint32_t num) {
+    if (min_command_interval_) {
+      min_command_interval_->update_state(num);
+    }
+  }
+
   void register_toggle_only(GDOSwitch *sw) { this->toggle_only_switch_ = sw; }
 
   void set_sync_state(bool synced);
@@ -153,6 +163,7 @@ protected:
   std::function<void(bool)> f_obstruction{nullptr};
   std::function<void(bool)> f_button{nullptr};
   std::function<void(bool)> f_motor{nullptr};
+  std::function<void(bool)> f_sync{nullptr};
   GDODoor *door_{nullptr};
   GDOLight *light_{nullptr};
   GDOLock *lock_{nullptr};
@@ -160,6 +171,7 @@ protected:
   GDONumber *close_duration_{nullptr};
   GDONumber *client_id_{nullptr};
   GDONumber *rolling_code_{nullptr};
+  GDONumber *min_command_interval_{nullptr};
   GDOSelect *protocol_select_{nullptr};
   GDOSwitch *learn_switch_{nullptr};
   GDOSwitch *toggle_only_switch_{nullptr};
