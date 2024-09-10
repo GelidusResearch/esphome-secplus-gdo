@@ -18,10 +18,12 @@
 #pragma once
 #include "esphome/core/component.h"
 #include "esphome/core/defines.h"
-#include "gdo.h"
 #include "light/gdo_light.h"
 #include "number/gdo_number.h"
 #include "select/gdo_select.h"
+#include "switch/gdo_switch.h"
+#include "cover/gdo_door.h"
+#include "gdo.h"
 
 namespace esphome {
 namespace secplus_gdo {
@@ -38,6 +40,7 @@ public:
   void register_protocol_select(GDOSelect *select) {
     this->protocol_select_ = select;
   }
+
   void set_protocol_state(gdo_protocol_type_t protocol) {
     if (this->protocol_select_) {
       this->protocol_select_->update_state(protocol);
@@ -79,12 +82,10 @@ public:
     }
   }
 
-  void register_door(std::function<void(gdo_door_state_t, float)> f) {
-    f_door = f;
-  }
+  void register_door(GDODoor *door) { this->door_ = door; }
   void set_door_state(gdo_door_state_t state, float position) {
-    if (f_door) {
-      f_door(state, position);
+    if (this->door_) {
+      this->door_->set_state(state, position);
     }
   }
 
@@ -102,10 +103,10 @@ public:
     }
   }
 
-  void register_learn(std::function<void(bool)> f) { f_learn = f; }
+  void register_learn(GDOSwitch *sw) { this->learn_switch_ = sw; }
   void set_learn_state(gdo_learn_state_t state) {
-    if (f_learn) {
-      f_learn(state == GDO_LEARN_STATE_ACTIVE);
+    if (this->learn_switch_) {
+      this->learn_switch_->write_state(state == GDO_LEARN_STATE_ACTIVE);
     }
   }
 
@@ -137,9 +138,10 @@ public:
     }
   }
 
+  void register_toggle_only(GDOSwitch *sw) { this->toggle_only_switch_ = sw; }
+
 protected:
-  gdo_status_t status_;
-  std::function<void(gdo_door_state_t, float)> f_door{nullptr};
+  gdo_status_t status_{};
   std::function<void(gdo_lock_state_t)> f_lock{nullptr};
   std::function<void(gdo_light_state_t)> f_light{nullptr};
   std::function<void(uint16_t)> f_openings{nullptr};
@@ -147,13 +149,14 @@ protected:
   std::function<void(bool)> f_obstruction{nullptr};
   std::function<void(bool)> f_button{nullptr};
   std::function<void(bool)> f_motor{nullptr};
-  std::function<void(bool)> f_learn{nullptr};
+  GDODoor *door_{nullptr};
   GDONumber *open_duration_{nullptr};
   GDONumber *close_duration_{nullptr};
   GDONumber *client_id_{nullptr};
   GDONumber *rolling_code_{nullptr};
   GDOSelect *protocol_select_{nullptr};
-
+  GDOSwitch *learn_switch_{nullptr};
+  GDOSwitch *toggle_only_switch_{nullptr};
 }; // GDOComponent
 } // namespace secplus_gdo
 } // namespace esphome

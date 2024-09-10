@@ -20,7 +20,6 @@
 #include "inttypes.h"
 #include "secplus_gdo.h"
 
-
 namespace esphome {
 namespace secplus_gdo {
 
@@ -129,6 +128,13 @@ static void gdo_event_handler(const gdo_status_t *status, gdo_cb_event_t event,
 }
 
 void GDOComponent::setup() {
+  // Set the toggle only state and control here because we cannot guarantee the
+  // cover instance was created before the switch
+  this->door_->set_toggle_only(this->toggle_only_switch_->state);
+  this->toggle_only_switch_->set_control_function(
+      std::bind(&esphome::secplus_gdo::GDODoor::set_toggle_only, this->door_,
+                std::placeholders::_1));
+
   gdo_config_t gdo_conf = {
       .uart_num = UART_NUM_1,
       .obst_from_status = true,
