@@ -31,13 +31,19 @@ SECPLUS_GDO = secplus_gdo_ns.class_("GDOComponent", cg.Component)
 
 CONF_OUTPUT_GDO = "output_gdo_pin"
 CONF_INPUT_GDO = "input_gdo_pin"
+CONF_INPUT_OBST = "input_obst_pin"
 CONF_SECPLUS_GDO_ID = "secplus_gdo_id"
+CONF_OUTPUT_RF = "rf_tx_pin"
+CONF_INPUT_RF = "rf_rx_pin"
 
 CONFIG_SCHEMA = cv.Schema(
     {
         cv.GenerateID(): cv.declare_id(SECPLUS_GDO),
         cv.Required(CONF_OUTPUT_GDO): pins.gpio_output_pin_schema,
         cv.Required(CONF_INPUT_GDO): pins.gpio_input_pin_schema,
+        cv.Optional(CONF_INPUT_OBST): cv.Any(cv.none, pins.gpio_input_pin_schema),
+        cv.Optional(CONF_INPUT_RF): cv.Any(cv.none, pins.gpio_input_pin_schema),
+        cv.Optional(CONF_OUTPUT_RF): cv.Any(cv.none, pins.gpio_input_pin_schema),
     }
 ).extend(cv.COMPONENT_SCHEMA)
 
@@ -52,3 +58,14 @@ async def to_code(config):
     await cg.register_component(var, config)
     cg.add_define("GDO_UART_TX_PIN", config[CONF_OUTPUT_GDO]["number"])
     cg.add_define("GDO_UART_RX_PIN", config[CONF_INPUT_GDO]["number"])
+
+    if CONF_INPUT_OBST in config and config[CONF_INPUT_OBST]:
+        cg.add_define("GDO_OBST_INPUT_PIN", config[CONF_INPUT_OBST]["number"])
+    if CONF_INPUT_RF in config and config[CONF_INPUT_RF]:
+        cg.add_define("GDO_RF_RX_PIN", config[CONF_INPUT_RF]["number"])
+    else:
+        cg.add_define("GDO_RF_RX_PIN", -1)
+    if CONF_OUTPUT_RF in config and config[CONF_OUTPUT_RF]:
+        cg.add_define("GDO_RF_TX_PIN", config[CONF_OUTPUT_RF]["number"])
+    else:
+        cg.add_define("GDO_RF_TX_PIN", -1)
