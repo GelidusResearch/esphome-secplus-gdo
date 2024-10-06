@@ -7,13 +7,13 @@ namespace secplus_gdo {
 class GDODoor;
 
 class CoverClosingStartTrigger : public Trigger<> {
- public:
+public:
   CoverClosingStartTrigger(GDODoor *gdo_door) {}
 };
 
 class CoverClosingEndTrigger : public Trigger<> {
- public:
+public:
   CoverClosingEndTrigger(GDODoor *gdo_door) {}
 };
-}  // namespace secplus_gdo
-}  // namespace esphome
+} // namespace secplus_gdo
+} // namespace esphome

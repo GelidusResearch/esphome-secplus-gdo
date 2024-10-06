@@ -35,16 +35,10 @@ CONFIG_SCHEMA = lock.LOCK_SCHEMA.extend(
 ).extend(SECPLUS_GDO_CONFIG_SCHEMA)
 
 
+
 async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
     await lock.register_lock(var, config)
     await cg.register_component(var, config)
     parent = await cg.get_variable(config[CONF_SECPLUS_GDO_ID])
-    text = (
-        "std::bind(&"
-        + str(GDOLock)
-        + "::set_state,"
-        + str(config[CONF_ID])
-        + ",std::placeholders::_1)"
-    )
-    cg.add(parent.register_lock(cg.RawExpression(text)))
+    cg.add(parent.register_lock(var))
