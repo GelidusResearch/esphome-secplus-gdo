@@ -64,7 +64,7 @@ async def to_code(config):
     if CONF_PRE_CLOSE_WARNING_DURATION in config:
         cg.add(
             var.set_pre_close_warning_duration(config[CONF_PRE_CLOSE_WARNING_DURATION])
-        )
+        )    
     for conf in config.get(CONF_PRE_CLOSE_WARNING_START, []):
         trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)
         await automation.build_automation(trigger, [], conf)

@@ -35,6 +35,7 @@ CONFIG_SCHEMA = lock.LOCK_SCHEMA.extend(
 ).extend(SECPLUS_GDO_CONFIG_SCHEMA)
 
 
+
 async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
     await lock.register_lock(var, config)

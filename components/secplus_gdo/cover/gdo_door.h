@@ -42,6 +42,7 @@ public:
   void register_door_closing_warn_end_trigger(CoverClosingEndTrigger *trigger) {
     this->pre_close_end_trigger = trigger;
   }
+
   void set_sync_state(bool synced) { this->synced_ = synced; }
   void do_action(const cover::CoverCall &call);
   void do_action_after_warning(const cover::CoverCall &call);

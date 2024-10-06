@@ -22,6 +22,7 @@
 #include "esphome/core/component.h"
 #include "gdo.h"
 
+
 namespace esphome {
 namespace secplus_gdo {
 

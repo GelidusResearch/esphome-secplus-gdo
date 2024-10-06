@@ -1,7 +1,6 @@
 """
 /*
  * Copyright (C) 2024  Konnected Inc.
- * Copyright (C) 2024  Gelidus Research
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -27,7 +26,9 @@ from .. import SECPLUS_GDO_CONFIG_SCHEMA, secplus_gdo_ns, CONF_SECPLUS_GDO_ID
 
 DEPENDENCIES = ["secplus_gdo"]
 
-GDOLight = secplus_gdo_ns.class_("GDOLight", light.LightOutput, cg.Component)
+GDOLight = secplus_gdo_ns.class_(
+    "GDOLight", light.LightOutput, cg.Component
+)
 
 
 CONFIG_SCHEMA = light.LIGHT_SCHEMA.extend(

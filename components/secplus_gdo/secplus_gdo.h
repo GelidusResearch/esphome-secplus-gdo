@@ -16,6 +16,7 @@
  */
 
 #pragma once
+
 #include "cover/gdo_door.h"
 #include "esphome/core/component.h"
 #include "esphome/core/defines.h"
@@ -23,6 +24,7 @@
 #include "light/gdo_light.h"
 #include "lock/gdo_lock.h"
 #include "number/gdo_number.h"
+#include "esphome/core/defines.h"
 #include "select/gdo_select.h"
 #include "switch/gdo_switch.h"
 

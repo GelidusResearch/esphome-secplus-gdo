@@ -8,10 +8,10 @@
 #pragma once
 
 #include "esphome/components/switch/switch.h"
+#include "esphome/core/preferences.h"
 #include "esphome/core/component.h"
 #include "esphome/core/preferences.h"
 #include "gdo.h"
-
 
 namespace esphome {
 namespace secplus_gdo {

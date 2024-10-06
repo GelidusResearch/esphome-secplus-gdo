@@ -14,7 +14,6 @@
 #include "esphome/core/preferences.h"
 #include "gdo.h"
 
-
 namespace esphome {
 namespace secplus_gdo {
 
