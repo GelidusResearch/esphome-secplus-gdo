@@ -33,7 +33,6 @@ CONF_OUTPUT_GDO = "output_gdo_pin"
 DEFAULT_OUTPUT_GDO = ("1")
 CONF_INPUT_GDO = "input_gdo_pin"
 DEFAULT_INPUT_GDO = ("2")
-
 CONF_SECPLUS_GDO_ID = "secplus_gdo_id"
 
 CONFIG_SCHEMA = cv.Schema(
@@ -53,5 +52,6 @@ SECPLUS_GDO_CONFIG_SCHEMA = cv.Schema(
 async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
-    cg.add_define("GDO_UART_TX_PIN", config[CONF_OUTPUT_GDO]['number'])
-    cg.add_define("GDO_UART_RX_PIN", config[CONF_INPUT_GDO]['number'])
+    cg.add_define("GDO_UART_TX_PIN", config[CONF_OUTPUT_GDO]["number"])
+    cg.add_define("GDO_UART_RX_PIN", config[CONF_INPUT_GDO]["number"])
+

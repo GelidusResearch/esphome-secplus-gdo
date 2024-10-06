@@ -44,9 +44,7 @@ CONF_PRE_CLOSE_WARNING_END = "pre_close_warning_end"
 CONFIG_SCHEMA = cover.COVER_SCHEMA.extend(
     {
         cv.GenerateID(): cv.declare_id(GDODoor),
-        cv.Optional(
-            CONF_PRE_CLOSE_WARNING_DURATION
-        ): cv.positive_time_period_milliseconds,
+        cv.Optional(CONF_PRE_CLOSE_WARNING_DURATION, default = "0s" ): cv.positive_time_period_milliseconds,
         cv.Optional(CONF_PRE_CLOSE_WARNING_START): automation.validate_automation(
             {cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(CoverClosingStartTrigger)}
         ),

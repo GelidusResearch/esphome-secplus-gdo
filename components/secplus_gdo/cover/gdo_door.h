@@ -22,7 +22,6 @@
 #include "esphome/core/component.h"
 #include "gdo.h"
 
-
 namespace esphome {
 namespace secplus_gdo {
 
@@ -36,17 +35,15 @@ public:
     traits.set_supports_position(true);
     return traits;
   }
-
-  void register_door_closing_warn_start_trigger(CoverClosingStartTrigger *trigger) {
+  void
+  register_door_closing_warn_start_trigger(CoverClosingStartTrigger *trigger) {
     this->pre_close_start_trigger = trigger;
   }
-
   void register_door_closing_warn_end_trigger(CoverClosingEndTrigger *trigger) {
     this->pre_close_end_trigger = trigger;
   }
 
   void set_sync_state(bool synced) { this->synced_ = synced; }
-
   void do_action(const cover::CoverCall &call);
   void do_action_after_warning(const cover::CoverCall &call);
   void set_pre_close_warning_duration(uint32_t ms) {
@@ -57,7 +54,6 @@ public:
 
 protected:
   void control(const cover::CoverCall &call);
-
   CoverClosingStartTrigger *pre_close_start_trigger{nullptr};
   CoverClosingEndTrigger *pre_close_end_trigger{nullptr};
   uint32_t pre_close_duration_{0};
