@@ -139,9 +139,12 @@ void GDOComponent::setup() {
       .invert_uart = true,
       .uart_tx_pin = (gpio_num_t)GDO_UART_TX_PIN,
       .uart_rx_pin = (gpio_num_t)GDO_UART_RX_PIN,
+      // .rf_tx_pin = (gpio_num_t)-1,
+      // .rf_rx_pin = (gpio_num_t)-1,
       .obst_in_pin = (gpio_num_t)-1,
   };
 
+  gdo_set_min_command_interval((uint32_t)this->min_command_interval_);
   gdo_init(&gdo_conf);
   gdo_get_status(&this->status_);
   gdo_start(gdo_event_handler, this);
@@ -150,8 +153,8 @@ void GDOComponent::setup() {
     gdo_start(gdo_event_handler, this);
     ESP_LOGI(TAG, "secplus GDO started!");
   } else {
-    // check every 500ms for readiness before starting GDO
-    this->set_interval("gdo_start", 500, [=]() {
+    // check every 750ms for readiness before starting GDO
+    this->set_interval("gdo_start", 750, [=]() {
       if (this->start_gdo_) {
         gdo_start(gdo_event_handler, this);
         ESP_LOGI(TAG, "secplus GDO started!");
