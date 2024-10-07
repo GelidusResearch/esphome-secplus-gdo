@@ -135,11 +135,25 @@ void GDOComponent::setup() {
 
   gdo_config_t gdo_conf = {
       .uart_num = UART_NUM_1,
-      .obst_from_status = true,
+      .obst_from_status = GDO_OBST_FROM_STATE,
       .invert_uart = true,
       .uart_tx_pin = (gpio_num_t)GDO_UART_TX_PIN,
       .uart_rx_pin = (gpio_num_t)GDO_UART_RX_PIN,
-      .obst_in_pin = (gpio_num_t)-1,
+#ifdef GDO_OBST_INPUT_PIN
+      .obst_in_pin = (gpio_num_t)GDO_OBST_INPUT_PIN,
+#else
+      .obst_in_pin = (gpio_num_t) -1,
+#endif
+#ifdef GDO_RF_TX_PIN
+      .rf_tx_pin = (gpio_num_t)GDO_RF_TX_PIN,
+#else
+      .rf_tx_pin = (gpio_num_t)-1,
+#endif
+#ifdef GDO_RF_RX_PIN
+      .rf_rx_pin = (gpio_num_t)GDO_RF_RX_PIN,
+#else
+      .rf_rx_pin = (gpio_num_t)-1,
+#endif
   };
 
   gdo_init(&gdo_conf);
