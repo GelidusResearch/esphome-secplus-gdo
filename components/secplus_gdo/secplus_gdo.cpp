@@ -141,7 +141,7 @@ void GDOComponent::setup() {
       .uart_rx_pin = (gpio_num_t)GDO_UART_RX_PIN,
       .obst_in_pin = (gpio_num_t)-1,
   };
-  gdo_set_min_command_interval((uint32_t)this->min_command_interval_);
+
   gdo_init(&gdo_conf);
   gdo_get_status(&this->status_);
   gdo_start(gdo_event_handler, this);
@@ -173,7 +173,7 @@ void GDOComponent::set_sync_state(bool synced) {
   if (this->lock_) {
     this->lock_->set_sync_state(synced);
   }
-  
+
   if (this->f_sync) {
     this->f_sync(synced);
   }
