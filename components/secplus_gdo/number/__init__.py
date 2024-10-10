@@ -35,6 +35,7 @@ TYPES = {
     "client_id": "register_client_id",
     "rolling_code": "register_rolling_code",
     "min_command_interval": "register_min_command_interval",
+    "time_to_close": "register_time_to_close",
 }
 
 CONFIG_SCHEMA = (
@@ -43,6 +44,7 @@ CONFIG_SCHEMA = (
         {
             cv.Required(CONF_TYPE): cv.enum(TYPES, lower=True),
             cv.Optional('min_command_interval', default=50): cv.uint32_t,
+            cv.Optional('time_to_close', default=300): cv.uint16_t,
         }
     )
     .extend(SECPLUS_GDO_CONFIG_SCHEMA)
@@ -57,6 +59,8 @@ async def to_code(config):
         await number.register_number(var, config, min_value=0x666, max_value=0x7ff666, step=1)
     elif "min_command_interval" in str(config[CONF_TYPE]):
         await number.register_number(var, config, min_value=50, max_value=1000, step=50)
+    elif "time_to_close" in str(config[CONF_TYPE]):
+        await number.register_number(var, config, min_value=0, max_value=65535, step=60)
     else:
         await number.register_number(var, config, min_value=0x0, max_value=0xffffffff, step=1)
     await cg.register_component(var, config)

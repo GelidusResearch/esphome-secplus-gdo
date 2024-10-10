@@ -126,7 +126,7 @@ void GDODoor::do_action(const cover::CoverCall &call) {
         ESP_LOGD(TAG, "Sending OPEN action");
         gdo_door_open();
       }
-      
+
       this->set_state(GDO_DOOR_STATE_OPENING, this->position);
     } else if (pos == COVER_CLOSED) {
       if (this->toggle_only_) {

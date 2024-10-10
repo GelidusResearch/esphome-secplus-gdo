@@ -98,8 +98,15 @@ static void gdo_event_handler(const gdo_status_t *status, gdo_cb_event_t event,
     ESP_LOGI(TAG, "Openings: %d", status->openings);
     gdo->set_openings(status->openings);
     break;
-  case GDO_CB_EVENT_TTC:
-    ESP_LOGI(TAG, "Time to close: %d", status->ttc_seconds);
+  case GDO_CB_EVENT_SET_TTC:
+    ESP_LOGI(TAG, "Set Time to close: %d", status->ttc_seconds);
+    break;
+  case GDO_CB_EVENT_CANCLE_TTC:
+    ESP_LOGI(TAG, "Cancle Time to close: %d", status->ttc_seconds);
+    break;
+  case GDO_CB_EVENT_UPDATE_TTC:
+    ESP_LOGI(TAG, "Update Time to close: %d", status->ttc_seconds);
+    if ((status->ttc_seconds == 0) && (status->ttc_enabled)) gdo_door_close();
     break;
   case GDO_CB_EVENT_PAIRED_DEVICES:
     ESP_LOGI(TAG,

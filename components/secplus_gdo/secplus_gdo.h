@@ -152,6 +152,13 @@ public:
     }
   }
 
+  void register_time_to_close(GDONumber *num) { time_to_close_ = num; }
+  void set_time_to_close(uint16_t num) {
+    if (time_to_close_) {
+      time_to_close_->update_state(num);
+    }
+  }
+
   void register_toggle_only(GDOSwitch *sw) { this->toggle_only_switch_ = sw; }
 
   void set_sync_state(bool synced);
@@ -174,6 +181,7 @@ protected:
   GDONumber *client_id_{nullptr};
   GDONumber *rolling_code_{nullptr};
   GDONumber *min_command_interval_{nullptr};
+  GDONumber *time_to_close_{nullptr};
   GDOSelect *protocol_select_{nullptr};
   GDOSwitch *learn_switch_{nullptr};
   GDOSwitch *toggle_only_switch_{nullptr};
