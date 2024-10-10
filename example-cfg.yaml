@@ -269,6 +269,16 @@ number:
   #  mode: box
   #  unit_of_measurement: "ms"
 
+  # Add Time to Close (TTC) control, 0s = disabled
+  # - platform: secplus_gdo
+  #   name: Time to Close
+  #   secplus_gdo_id: grgdo
+  #   entity_category: config
+  #   id: gdo_time_to_close
+  #   type: time_to_close
+  #   mode: box
+  #   unit_of_measurement: "s"
+
 button:
   - platform: restart
     name: Restart
