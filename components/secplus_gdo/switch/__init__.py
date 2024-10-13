@@ -29,7 +29,11 @@ CONFIG_SCHEMA = (
 
 async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
-    await switch.register_switch(var, config)
+    if "learn" in str(config[CONF_TYPE]):
+        await switch.register_switch(var, config)
+    elif "toggle_only" in str(config[CONF_TYPE]):
+        cg.add_define("GOD_TOGGLE_ONLY")
+        await switch.register_switch(var, config)
     await cg.register_component(var, config)
     parent = await cg.get_variable(config[CONF_SECPLUS_GDO_ID])
     fcall = str(parent) + "->" + str(TYPES[config[CONF_TYPE]])
