@@ -101,7 +101,7 @@ static void gdo_event_handler(const gdo_status_t *status, gdo_cb_event_t event,
   case GDO_CB_EVENT_SET_TTC:
     ESP_LOGI(TAG, "Set Time to close: %d", status->ttc_seconds);
     break;
-  case GDO_CB_EVENT_CANCLE_TTC:
+  case GDO_CB_EVENT_CANCEL_TTC:
     ESP_LOGI(TAG, "Cancle Time to close: %d", status->ttc_seconds);
     break;
   case GDO_CB_EVENT_UPDATE_TTC:
@@ -118,11 +118,11 @@ static void gdo_event_handler(const gdo_status_t *status, gdo_cb_event_t event,
              status->paired_devices.total_accessories,
              status->paired_devices.total_all);
     break;
-  case GDO_CB_EVENT_OPEN_DURATION_MEASURMENT:
+  case GDO_CB_EVENT_OPEN_DURATION_MEASUREMENT:
     ESP_LOGI(TAG, "Open duration: %d", status->open_ms);
     gdo->set_open_duration(status->open_ms);
     break;
-  case GDO_CB_EVENT_CLOSE_DURATION_MEASURMENT:
+  case GDO_CB_EVENT_CLOSE_DURATION_MEASUREMENT:
     ESP_LOGI(TAG, "Close duration: %d", status->close_ms);
     gdo->set_close_duration(status->close_ms);
     break;
@@ -133,14 +133,14 @@ static void gdo_event_handler(const gdo_status_t *status, gdo_cb_event_t event,
 }
 
 void GDOComponent::setup() {
-  #ifdef GDO_TOGGLE_ONLY
+#ifdef GDO_TOGGLE_ONLY
   // Set the toggle only state and control here because we cannot guarantee the
   // cover instance was created before the switch
   this->door_->set_toggle_only(this->toggle_only_switch_->state);
   this->toggle_only_switch_->set_control_function(
       std::bind(&esphome::secplus_gdo::GDODoor::set_toggle_only, this->door_,
                 std::placeholders::_1));
-  #endif
+#endif
   gdo_config_t gdo_conf = {
       .uart_num = UART_NUM_1,
       .obst_from_status = GDO_OBST_FROM_STATE,
@@ -163,7 +163,6 @@ void GDOComponent::setup() {
       .rf_rx_pin = (gpio_num_t)-1,
 #endif
   };
-
   gdo_init(&gdo_conf);
   gdo_get_status(&this->status_);
   gdo_start(gdo_event_handler, this);
