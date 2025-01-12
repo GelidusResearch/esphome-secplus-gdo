@@ -50,7 +50,6 @@ esphome:
   platformio_options:
     build_flags:
       - -Wl,--wrap=esp_panic_handler
-      - -DUART_SCLK_DEFAULT=UART_SCLK_APB
 
 wifi:
   on_connect:
@@ -64,11 +63,6 @@ wifi:
     ap_timeout: 10s
 
 captive_portal:
-
-# improv_serial:
-
-# esp32_improv:
-#   authorizer: false
 
 web_server:
 

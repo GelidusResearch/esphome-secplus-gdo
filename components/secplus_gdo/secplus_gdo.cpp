@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2024  Konnected Inc.
+ * Copyright (C) 2025  Gelidus Research
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -14,6 +15,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+
 
 #include "esphome/core/application.h"
 #include "esphome/core/log.h"
@@ -163,6 +165,7 @@ void GDOComponent::setup() {
       .rf_rx_pin = (gpio_num_t)-1,
 #endif
   };
+  setup_distance();
   gdo_init(&gdo_conf);
   gdo_get_status(&this->status_);
   gdo_start(gdo_event_handler, this);
@@ -172,7 +175,7 @@ void GDOComponent::setup() {
     ESP_LOGI(TAG, "secplus GDO started!");
   } else {
     // check every 500ms for readiness before starting GDO
-    this->set_interval("gdo_start", 500, [=]() {
+    this->set_interval("gdo_start", 500, [this]() {
       if (this->start_gdo_) {
         gdo_start(gdo_event_handler, this);
         ESP_LOGI(TAG, "secplus GDO started!");
@@ -198,6 +201,23 @@ void GDOComponent::set_sync_state(bool synced) {
   if (this->f_sync) {
     this->f_sync(synced);
   }
+}
+
+void GDOComponent::setup_distance() {
+    uint8_t model_id, module_type, sensorState = 0;
+    VL53L1X_ERROR status = 0;
+    uint16_t TOF = VL53L1_I2C_ADDRESS;
+
+    // delay to let the serial monitor re-connect
+    vTaskDelay( 2000 / portTICK_PERIOD_MS );
+    printf( "\r\nDevice Starting...\r\n" );
+
+    // startup the I2C interface and scan for the devices
+    i2c_init();
+    i2c_scan();
+
+    // initialize the ToF sensor
+    VL53L1X_SensorInit( TOF );
 }
 
 void GDOComponent::dump_config() {

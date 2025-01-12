@@ -23,6 +23,7 @@ import esphome.config_validation as cv
 import voluptuous as vol
 from esphome import pins
 from esphome.const import CONF_ID
+from esphome import core
 
 DEPENDENCIES = ["preferences"]
 MULTI_CONF = True
@@ -70,3 +71,14 @@ async def to_code(config):
         cg.add_define("GDO_OBST_FROM_STATE", False)
     else:
         cg.add_define("GDO_OBST_FROM_STATE", True)
+    cg.add_library(
+        name="VL53L1",
+        repository="https://github.com/gelidusresearch/VL53L1.git",
+        version=None,
+    )
+    cg.add_library(
+        name="GDOLIB",
+        repository="https://github.com/gelidusresearch/gdolib.git",
+        version=None,
+    )
+    cg.add_define("USE_DISTANCE")

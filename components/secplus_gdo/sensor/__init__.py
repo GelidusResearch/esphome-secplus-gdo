@@ -36,6 +36,7 @@ TYPES = {
     "paired_devices_keypads": "register_paired_keypads",
     "paired_devices_wall_controls": "register_paired_wall_controls",
     "paired_devices_accessories": "register_paired_accessories",
+    "target_distance": "register_target_distance",
 }
 
 
@@ -48,7 +49,6 @@ CONFIG_SCHEMA = (
     )
     .extend(SECPLUS_GDO_CONFIG_SCHEMA)
 )
-
 
 async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
@@ -65,3 +65,5 @@ async def to_code(config):
         + ",std::placeholders::_1))"
     )
     cg.add((cg.RawExpression(text)))
+
+

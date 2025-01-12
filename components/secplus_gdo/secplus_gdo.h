@@ -16,17 +16,23 @@
  */
 
 #pragma once
-
 #include "cover/gdo_door.h"
 #include "esphome/core/component.h"
 #include "esphome/core/defines.h"
 #include "gdo.h"
+#ifdef USE_DISTANCE
+extern "C" {
+#include "VL53L1X_api.h"
+}
+#endif
 #include "light/gdo_light.h"
 #include "lock/gdo_lock.h"
 #include "number/gdo_number.h"
 #include "esphome/core/defines.h"
 #include "select/gdo_select.h"
 #include "switch/gdo_switch.h"
+
+
 
 namespace esphome {
 namespace secplus_gdo {
@@ -159,6 +165,17 @@ public:
     }
   }
 
+#ifdef USE_DISTANCE
+  void setup_distance();
+
+  void register_target_distance(GDONumber *num) { target_distance_ = num; }
+  void set_target_distance(uint16_t num) {
+    if (target_distance_) {
+      target_distance_->update_state(num);
+    }
+  }
+#endif
+
   void register_toggle_only(GDOSwitch *sw) { this->toggle_only_switch_ = sw; }
 
   void set_sync_state(bool synced);
@@ -186,6 +203,9 @@ protected:
   GDOSwitch *learn_switch_{nullptr};
   GDOSwitch *toggle_only_switch_{nullptr};
   bool start_gdo_{false};
+#ifdef USE_DISTANCE
+  GDONumber *target_distance_{nullptr};
+#endif
 }; // GDOComponent
 } // namespace secplus_gdo
 } // namespace esphome
