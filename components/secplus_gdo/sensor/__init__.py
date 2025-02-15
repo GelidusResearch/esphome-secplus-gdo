@@ -23,6 +23,7 @@ from esphome.components import sensor
 from esphome.const import CONF_ID
 
 from .. import SECPLUS_GDO_CONFIG_SCHEMA, secplus_gdo_ns, CONF_SECPLUS_GDO_ID
+from .. import CONF_TOF_SDA_PIN
 
 DEPENDENCIES = ["secplus_gdo"]
 
@@ -31,12 +32,12 @@ GDOStat = secplus_gdo_ns.class_("GDOStat", sensor.Sensor, cg.Component)
 CONF_TYPE = "type"
 TYPES = {
     "openings": "register_openings",
+    "tof_distance": "register_tof_distance",
     "paired_devices_total": "register_paired_total",
     "paired_devices_remotes": "register_paired_remotes",
     "paired_devices_keypads": "register_paired_keypads",
     "paired_devices_wall_controls": "register_paired_wall_controls",
     "paired_devices_accessories": "register_paired_accessories",
-    "target_distance": "register_target_distance",
 }
 
 
@@ -65,5 +66,3 @@ async def to_code(config):
         + ",std::placeholders::_1))"
     )
     cg.add((cg.RawExpression(text)))
-
-

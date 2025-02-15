@@ -1,0 +1,20 @@
+{
+  "name": "esphome-secplus-gdo",
+  "version": "1.0.0",
+  "description": "Secplus GDO is an ESPHome component for controlling Security+ and Security+ 2.0 garage openers\r made by Chamberlain Group, including garage door openers sold since 1997 under the Chamberlain,\r LiftMaster, Craftsman and Merlin brands.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/descipher/esphome-secplus-gdo.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/descipher/esphome-secplus-gdo/issues"
+  },
+  "homepage": "https://github.com/descipher/esphome-secplus-gdo#readme"
+}

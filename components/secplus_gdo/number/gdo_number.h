@@ -17,19 +17,22 @@
 
 #pragma once
 
+#include "esphome/components/number/number.h"
 #include "esphome/core/component.h"
 #include "esphome/core/preferences.h"
-#include "esphome/components/number/number.h"
+
 
 namespace esphome {
 namespace secplus_gdo {
 
 class GDONumber : public number::Number, public Component {
- public:
+public:
   void dump_config() override {}
+
   void setup() override {
     float value;
-    this->pref_ = global_preferences->make_preference<float>(this->get_object_id_hash());
+    this->pref_ =
+        global_preferences->make_preference<float>(this->get_object_id_hash());
     if (!this->pref_.load(&value)) {
       value = 0;
     }
@@ -58,11 +61,11 @@ class GDONumber : public number::Number, public Component {
     }
   }
 
-  void set_control_function(std::function<int(float)> f) { f_control = f; }
+  void set_control_function(std::function<void(float)> f) { f_control = f; }
 
  protected:
   ESPPreferenceObject pref_;
-  std::function<int(float)> f_control{nullptr};
+  std::function<void(float)> f_control{nullptr};
 };
-}  // namespace secplus_gdo
-}  // namespace esphome
+} // namespace secplus_gdo
+} // namespace esphome

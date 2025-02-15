@@ -23,11 +23,11 @@ from esphome.components import number
 from esphome.const import CONF_ID
 
 from .. import SECPLUS_GDO_CONFIG_SCHEMA, secplus_gdo_ns, CONF_SECPLUS_GDO_ID
+from .. import CONF_TOF_SDA_PIN
 
 DEPENDENCIES = ["secplus_gdo"]
 
 GDONumber = secplus_gdo_ns.class_("GDONumber", number.Number, cg.Component)
-
 CONF_TYPE = "type"
 TYPES = {
     "open_duration": "register_open_duration",
@@ -36,8 +36,7 @@ TYPES = {
     "rolling_code": "register_rolling_code",
     "min_command_interval": "register_min_command_interval",
     "time_to_close": "register_time_to_close",
-    "target_distance": "register_target_distance",
-
+    "vehicle_parked_threshold": "register_vehicle_parked_threshold",
 }
 
 CONFIG_SCHEMA = (
@@ -47,27 +46,35 @@ CONFIG_SCHEMA = (
             cv.Required(CONF_TYPE): cv.enum(TYPES, lower=True),
             cv.Optional('min_command_interval', default=50): cv.uint32_t,
             cv.Optional('time_to_close', default=300): cv.uint16_t,
-            cv.Optional('target_distance', default=1000): cv.uint16_t,
+            cv.Optional('vehicle_parked_threshold', default=100): cv.uint16_t,
         }
     )
     .extend(SECPLUS_GDO_CONFIG_SCHEMA)
 )
 
 
+
+
 async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
-    if "duration" in str(config[CONF_TYPE]):
+    parent = await cg.get_variable(config[CONF_SECPLUS_GDO_ID])
+    if parent.get(CONF_TOF_SDA_PIN) is None:
+        print("TOF sensor")
+        if config[CONF_TYPE] != "vehicle_parked_threshold":
+            raise cv.Invalid("TOF sensor is only valid with vehicle_parked_threshold")
+    if config[CONF_TYPE] == "vehicle_parked_threshold":
+        await number.register_number(var, config, min_value=10, max_value=400, step=10)
+    elif config[CONF_TYPE] == "duration":
         await number.register_number(var, config, min_value=0x0, max_value=0xffff, step=1)
-    elif "client_id" in str(config[CONF_TYPE]):
+    elif config[CONF_TYPE] == "client_id":
         await number.register_number(var, config, min_value=0x666, max_value=0x7ff666, step=1)
-    elif "min_command_interval" in str(config[CONF_TYPE]):
+    elif config[CONF_TYPE] == "min_command_interval":
         await number.register_number(var, config, min_value=50, max_value=1000, step=50)
-    elif "time_to_close" in str(config[CONF_TYPE]):
+    elif config[CONF_TYPE] == "time_to_close":
         await number.register_number(var, config, min_value=0, max_value=65535, step=60)
-    elif "target_distance" in str(config[CONF_TYPE]):
-        await number.register_number(var, config, min_value=1000, max_value=40000, step=100)
     else:
         await number.register_number(var, config, min_value=0x0, max_value=0xffffffff, step=1)
+
     await cg.register_component(var, config)
     parent = await cg.get_variable(config[CONF_SECPLUS_GDO_ID])
     fcall = str(parent) + "->" + str(TYPES[config[CONF_TYPE]])

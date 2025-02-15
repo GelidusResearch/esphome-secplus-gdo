@@ -23,6 +23,7 @@ from esphome.components import binary_sensor
 from esphome.const import CONF_ID
 
 from .. import SECPLUS_GDO_CONFIG_SCHEMA, secplus_gdo_ns, CONF_SECPLUS_GDO_ID
+from .. import CONF_TOF_SDA_PIN
 
 DEPENDENCIES = ["secplus_gdo"]
 
@@ -37,6 +38,9 @@ TYPES = {
     "motor": "register_motor",
     "button": "register_button",
     "sync": "register_sync",
+    "vehicle_parked": "register_vehicle_parked",
+    "vehicle_arriving": "register_vehicle_arriving",
+    "vehicle_leaving": "register_vehicle_leaving",
 }
 
 
