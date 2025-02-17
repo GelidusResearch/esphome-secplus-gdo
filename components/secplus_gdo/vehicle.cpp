@@ -64,7 +64,7 @@ void VehicleTracker::process_vehicle_state(uint16_t parked_threshold, uint16_t t
   }
   bool within_threshold = true;
   for (const auto &distance : distance_measurements) {
-    if (abs(distance - parked_threshold) > 2) {
+    if (abs(distance - parked_threshold) > 5) {
       within_threshold = false;
       break;
     }
