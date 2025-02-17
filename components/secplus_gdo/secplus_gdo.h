@@ -123,10 +123,20 @@ public:
       }
   }
 
-  void register_vehicle_parked_threshold(GDONumber *num); // { this->vehicle_parked_threshold_ = num; }
-  void set_vehicle_parked_threshold(uint16_t num);
-  uint16_t get_vehicle_parked_threshold();
+  #ifdef TOF_SENSOR
+  void register_vehicle_parked_threshold(GDONumber *num) { this->vehicle_parked_threshold_ = num; }
+  void set_vehicle_parked_threshold(uint16_t num) {
+  if (this->vehicle_parked_threshold_) {
+      this->vehicle_parked_threshold_->update_state(num);
+    }
+  }
+
+  uint16_t get_vehicle_parked_threshold() {
+        return this->vehicle_parked_threshold_->state;
+  }
 #endif
+
+  #endif
 
   void register_door(GDODoor *door) { this->door_ = door; }
   void set_door_state(gdo_door_state_t state, float position) {
@@ -200,10 +210,6 @@ public:
 
   void register_toggle_only(GDOSwitch *sw) { this->toggle_only_switch_ = sw; }
   void set_sync_state(bool synced);
-  GDONumber *vehicle_parked_threshold_{nullptr};
-  std::function<void(bool)> f_vehicle_parked{nullptr};
-  std::function<void(bool)> f_vehicle_leaving{nullptr};
-  std::function<void(bool)> f_vehicle_arriving{nullptr};
 
 protected:
   gdo_status_t status_{};
@@ -225,9 +231,14 @@ protected:
   GDONumber *rolling_code_{nullptr};
   GDONumber *min_command_interval_{nullptr};
   GDONumber *time_to_close_{nullptr};
+
 #ifdef TOF_SENSOR
   GDONumber *target_tof_distance_{nullptr};
+  GDONumber *vehicle_parked_threshold_{nullptr};
   std::function<void(uint16_t)> f_tof_distance{nullptr};
+  std::function<void(bool)> f_vehicle_parked{nullptr};
+  std::function<void(bool)> f_vehicle_leaving{nullptr};
+  std::function<void(bool)> f_vehicle_arriving{nullptr};  
 #endif
   GDOSelect *protocol_select_{nullptr};
   GDOSwitch *learn_switch_{nullptr};

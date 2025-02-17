@@ -205,16 +205,21 @@ namespace esphome
 #endif
       };
 #ifdef TOF_SENSOR
-      vt.setup_tof_sensor(gpio_num_t(GDO_TOF_SDA_PIN), gpio_num_t(GDO_TOF_SCL_PIN), 400000);
       gdo_set_tof_timer(250000, true);
 #endif
       gdo_init(&gdo_conf);
       gdo_get_status(&this->status_);
+#ifdef TOF_SENSOR
+      vt.setup_tof_sensor(gpio_num_t(GDO_TOF_SDA_PIN), gpio_num_t(GDO_TOF_SCL_PIN), 400000);
+      delay(100);
+#endif
       gdo_start(gdo_event_handler, this);
       ESP_LOGI(TAG, "secplus GDO started!");
       if (this->start_gdo_)
       {
         gdo_start(gdo_event_handler, this);
+  #ifdef TOF_SENSOR
+  #endif
         ESP_LOGI(TAG, "secplus GDO started!");
       }
       else
@@ -229,18 +234,6 @@ namespace esphome
       } });
       }
     }
-
-#ifdef TOF_SENSOR
-    void GDOComponent::register_vehicle_parked_threshold(GDONumber *num) { this->vehicle_parked_threshold_ = num; }
-    void GDOComponent::set_vehicle_parked_threshold(uint16_t num) {
-    if (this->vehicle_parked_threshold_) {
-        this->vehicle_parked_threshold_->update_state(num);
-      }
-    }
-    uint16_t GDOComponent::get_vehicle_parked_threshold() {
-          return this->vehicle_parked_threshold_->state;
-    }
-#endif
 
     void GDOComponent::set_sync_state(bool synced)
     {

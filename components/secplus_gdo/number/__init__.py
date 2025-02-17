@@ -57,14 +57,7 @@ CONFIG_SCHEMA = (
 
 async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
-    parent = await cg.get_variable(config[CONF_SECPLUS_GDO_ID])
-    if parent.get(CONF_TOF_SDA_PIN) is None:
-        print("TOF sensor")
-        if config[CONF_TYPE] != "vehicle_parked_threshold":
-            raise cv.Invalid("TOF sensor is only valid with vehicle_parked_threshold")
-    if config[CONF_TYPE] == "vehicle_parked_threshold":
-        await number.register_number(var, config, min_value=10, max_value=400, step=10)
-    elif config[CONF_TYPE] == "duration":
+    if config[CONF_TYPE] == "duration":
         await number.register_number(var, config, min_value=0x0, max_value=0xffff, step=1)
     elif config[CONF_TYPE] == "client_id":
         await number.register_number(var, config, min_value=0x666, max_value=0x7ff666, step=1)
@@ -72,6 +65,8 @@ async def to_code(config):
         await number.register_number(var, config, min_value=50, max_value=1000, step=50)
     elif config[CONF_TYPE] == "time_to_close":
         await number.register_number(var, config, min_value=0, max_value=65535, step=60)
+    elif config[CONF_TYPE] == "vehicle_parked_threshold":
+        await number.register_number(var, config, min_value=10, max_value=400, step=1)
     else:
         await number.register_number(var, config, min_value=0x0, max_value=0xffffffff, step=1)
 
