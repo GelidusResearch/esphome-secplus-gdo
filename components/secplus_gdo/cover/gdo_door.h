@@ -20,7 +20,7 @@
 #include "automation.h"
 #include "esphome/components/cover/cover.h"
 #include "esphome/core/component.h"
-#include "gdo.h"
+#include "include/gdo.h"
 
 namespace esphome {
 namespace secplus_gdo {

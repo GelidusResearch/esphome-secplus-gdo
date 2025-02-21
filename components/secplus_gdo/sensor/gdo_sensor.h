@@ -16,7 +16,7 @@
  */
 
 #pragma once
-
+#include "include/gdo.h"
 #include "esphome/core/component.h"
 #include "esphome/components/sensor/sensor.h"
 

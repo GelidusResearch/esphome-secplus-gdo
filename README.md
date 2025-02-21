@@ -4,7 +4,7 @@ Secplus GDO is an ESPHome component for controlling Security+ and Security+ 2.0 
 made by Chamberlain Group, including garage door openers sold since 1997 under the Chamberlain,
 LiftMaster, Craftsman and Merlin brands.
 
-## Adapted from [RATGDO](https://github.com/ratgdo) and [Secplus GDO](https://github.com/konnected-io) 
+## Adapted from [RATGDO](https://github.com/ratgdo) and [Secplus GDO](https://github.com/konnected-io)
 
 
 

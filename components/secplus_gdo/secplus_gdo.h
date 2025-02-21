@@ -16,11 +16,17 @@
  */
 
 #pragma once
-
+#include "include/gdo.h"
+//#include <functional>
 #include "cover/gdo_door.h"
 #include "esphome/core/component.h"
 #include "esphome/core/defines.h"
-#include "gdo.h"
+#ifdef TOF_SENSOR
+extern "C" {
+#include "VL53L1X_api.h"
+}
+#include "vehicle.h"
+#endif
 #include "light/gdo_light.h"
 #include "lock/gdo_lock.h"
 #include "number/gdo_number.h"
@@ -30,8 +36,10 @@
 
 namespace esphome {
 namespace secplus_gdo {
+
 class GDOComponent : public Component {
 public:
+
   void setup() override;
   void loop() override{};
   void dump_config() override;
@@ -79,7 +87,6 @@ public:
     }
   }
 
-
   void register_sync(std::function<void(bool)> f) { f_sync = f; }
 
   void register_openings(std::function<void(uint16_t)> f) { f_openings = f; }
@@ -88,6 +95,48 @@ public:
       f_openings(openings);
     }
   }
+#ifdef TOF_SENSOR
+  uint16_t last_distance = 0;
+  void register_tof_distance(std::function<void(uint16_t)> f) { f_tof_distance = f; }
+  void set_tof_distance(uint16_t tof_distance) {
+    if (f_tof_distance) {
+      f_tof_distance(tof_distance);
+    }
+  }
+  void register_vehicle_parked(std::function<void(bool)> f) { f_vehicle_parked = f; }
+  void register_vehicle_arriving(std::function<void(bool)> f) { f_vehicle_arriving = f; }
+  void register_vehicle_leaving(std::function<void(bool)> f) { f_vehicle_leaving = f; }
+
+  void set_vehicle_parked(bool state) {
+      if (f_vehicle_parked) {
+          f_vehicle_parked(state);
+      }
+  }
+  void set_vehicle_arriving(bool state) {
+      if (f_vehicle_arriving) {
+          f_vehicle_arriving(state);
+      }
+  }
+  void set_vehicle_leaving(bool state) {
+      if (f_vehicle_leaving) {
+          f_vehicle_leaving(state);
+      }
+  }
+
+  #ifdef TOF_SENSOR
+  void register_vehicle_parked_threshold(GDONumber *num) { this->vehicle_parked_threshold_ = num; }
+  void set_vehicle_parked_threshold(uint16_t num) {
+  if (this->vehicle_parked_threshold_) {
+      this->vehicle_parked_threshold_->update_state(num);
+    }
+  }
+
+  uint16_t get_vehicle_parked_threshold() {
+        return this->vehicle_parked_threshold_->state;
+  }
+#endif
+
+  #endif
 
   void register_door(GDODoor *door) { this->door_ = door; }
   void set_door_state(gdo_door_state_t state, float position) {
@@ -160,7 +209,6 @@ public:
   }
 
   void register_toggle_only(GDOSwitch *sw) { this->toggle_only_switch_ = sw; }
-
   void set_sync_state(bool synced);
 
 protected:
@@ -173,6 +221,7 @@ protected:
   std::function<void(bool)> f_button{nullptr};
   std::function<void(bool)> f_motor{nullptr};
   std::function<void(bool)> f_sync{nullptr};
+
   GDODoor *door_{nullptr};
   GDOLight *light_{nullptr};
   GDOLock *lock_{nullptr};
@@ -182,10 +231,20 @@ protected:
   GDONumber *rolling_code_{nullptr};
   GDONumber *min_command_interval_{nullptr};
   GDONumber *time_to_close_{nullptr};
+
+#ifdef TOF_SENSOR
+  GDONumber *target_tof_distance_{nullptr};
+  GDONumber *vehicle_parked_threshold_{nullptr};
+  std::function<void(uint16_t)> f_tof_distance{nullptr};
+  std::function<void(bool)> f_vehicle_parked{nullptr};
+  std::function<void(bool)> f_vehicle_leaving{nullptr};
+  std::function<void(bool)> f_vehicle_arriving{nullptr};  
+#endif
   GDOSelect *protocol_select_{nullptr};
   GDOSwitch *learn_switch_{nullptr};
   GDOSwitch *toggle_only_switch_{nullptr};
   bool start_gdo_{false};
+
 }; // GDOComponent
 } // namespace secplus_gdo
 } // namespace esphome
