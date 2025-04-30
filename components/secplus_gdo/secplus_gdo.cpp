@@ -156,8 +156,9 @@ namespace esphome
       {
         uint16_t distance = vt.get_tof_distance();
         uint16_t threshold = gdo->get_vehicle_parked_threshold();
+        uint16_t variance =  gdo->get_vehicle_parked_threshold_variance();
         vt.update_measurements(distance);
-        vt.process_vehicle_state(threshold, VEHICLE_SENCE_TIME, gdo);
+        vt.process_vehicle_state(threshold, variance, VEHICLE_SENCE_TIME, gdo);
         if (distance < gdo->last_distance - 1 || distance > gdo->last_distance + 1)
         {
           gdo->set_tof_distance(distance);
@@ -205,7 +206,7 @@ namespace esphome
 #endif
       };
 #ifdef TOF_SENSOR
-      gdo_set_tof_timer(250000, true);
+      gdo_set_tof_timer(100000, true);
 #endif
       gdo_init(&gdo_conf);
       gdo_get_status(&this->status_);
@@ -218,8 +219,6 @@ namespace esphome
       if (this->start_gdo_)
       {
         gdo_start(gdo_event_handler, this);
-  #ifdef TOF_SENSOR
-  #endif
         ESP_LOGI(TAG, "secplus GDO started!");
       }
       else
