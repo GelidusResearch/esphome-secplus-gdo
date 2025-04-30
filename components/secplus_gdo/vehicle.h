@@ -43,6 +43,7 @@ typedef struct {
   gdo_door_state_t previous_door_state;
   uint16_t current_distance_measurement;
   uint16_t parked_distance_threshold;
+  uint16_t parked_distance_threshold_variance;
   uint32_t last_state_change_time;
 } vehicle_status_t;
 
@@ -62,7 +63,7 @@ private:
 public:
   VehicleTracker(std::vector<int16_t> &measurements, uint16_t parked_threshold, uint16_t time_window);
   vehicle_status_t vp_status; // Vehicle presence status
-  void process_vehicle_state(uint16_t parked_threshold, uint16_t time_window, GDOComponent *gdo);
+  void process_vehicle_state(uint16_t parked_threshold, uint16_t variance, uint16_t time_window, GDOComponent *gdo);
   int setup_tof_sensor(gpio_num_t sda, gpio_num_t scl, int frequency);
   uint16_t get_tof_distance();
   vehicle_state_t get_state() const;

@@ -16,6 +16,7 @@ static vehicle_status_t vp_status = {
     .previous_door_state = GDO_DOOR_STATE_UNKNOWN,
     .current_distance_measurement = 0,
     .parked_distance_threshold = 0,
+    .parked_distance_threshold_variance = 5,
     .last_state_change_time = 0,
 };
 
@@ -55,17 +56,17 @@ void VehicleTracker::update_measurements(uint16_t new_reading) {
  * @param parked_threshold Distance threshold for parked vehicle.
  * @param time_window Time window for state change.
  */
-void VehicleTracker::process_vehicle_state(uint16_t parked_threshold, uint16_t time_window, GDOComponent *gdo) {
+void VehicleTracker::process_vehicle_state(uint16_t parked_threshold, uint16_t variance, uint16_t time_window, GDOComponent *gdo) {
   int64_t now = esp_timer_get_time();
   if ((now - time_window * 1000000 ) > vp_status.last_state_change_time) {
     vp_status.last_state_change_time = now;
   } else {
     return;
   }
-  bool within_threshold = true;
+  bool within_threshold = false;
   for (const auto &distance : distance_measurements) {
-    if (abs(distance - parked_threshold) > 5) {
-      within_threshold = false;
+    if (std::abs(distance - parked_threshold) <= variance) {
+      within_threshold = true;
       break;
     }
   }

@@ -14,4 +14,5 @@ At Gelidus we are seeking to reverse engineer the MyQ smart controllers further 
 
 ## Dependencies
 
-1. [gdolib](https://github.com/gelidusresearch/gdolib)
+1. [GDOLIB](https://github.com/gelidusresearch/gdolib) Always required.
+2. [VL53L1](https://github.com/GelidusResearch/VL53L1_ESPIDF) If using the ToF Sensor
