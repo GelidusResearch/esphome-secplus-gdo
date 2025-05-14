@@ -17,7 +17,6 @@
 
 #pragma once
 #include "include/gdo.h"
-//#include <functional>
 #include "cover/gdo_door.h"
 #include "esphome/core/component.h"
 #include "esphome/core/defines.h"
@@ -123,20 +122,23 @@ public:
       }
   }
 
-  #ifdef TOF_SENSOR
   void register_vehicle_parked_threshold(GDONumber *num) { this->vehicle_parked_threshold_ = num; }
-  void set_vehicle_parked_threshold(uint16_t num) {
-  if (this->vehicle_parked_threshold_) {
-      this->vehicle_parked_threshold_->update_state(num);
-    }
-  }
 
   uint16_t get_vehicle_parked_threshold() {
-        return this->vehicle_parked_threshold_->state;
+    return this->vehicle_parked_threshold_->state;
+  }
+
+  void register_vehicle_parked_threshold_variance(GDONumber *num) { this->vehicle_parked_threshold_variance_ = num; }
+
+  uint16_t get_vehicle_parked_threshold_variance() {
+    if (this->vehicle_parked_threshold_variance_ == nullptr) {
+      return 5;
+    } else {
+      return this->vehicle_parked_threshold_variance_->state;
+    }
   }
 #endif
 
-  #endif
 
   void register_door(GDODoor *door) { this->door_ = door; }
   void set_door_state(gdo_door_state_t state, float position) {
@@ -235,10 +237,11 @@ protected:
 #ifdef TOF_SENSOR
   GDONumber *target_tof_distance_{nullptr};
   GDONumber *vehicle_parked_threshold_{nullptr};
+  GDONumber *vehicle_parked_threshold_variance_{nullptr};
   std::function<void(uint16_t)> f_tof_distance{nullptr};
   std::function<void(bool)> f_vehicle_parked{nullptr};
   std::function<void(bool)> f_vehicle_leaving{nullptr};
-  std::function<void(bool)> f_vehicle_arriving{nullptr};  
+  std::function<void(bool)> f_vehicle_arriving{nullptr};
 #endif
   GDOSelect *protocol_select_{nullptr};
   GDOSwitch *learn_switch_{nullptr};

@@ -80,13 +80,15 @@ async def to_code(config):
         cg.add_define("GDO_OBST_FROM_STATE", False)
     else:
         cg.add_define("GDO_OBST_FROM_STATE", True)
+
+    # Add the library dependencies - reads version.json in the repo for the version
     cg.add_library(
         name="VL53L1",
         repository="https://github.com/gelidusresearch/VL53L1_ESPIDF.git",
-        version="v1.0.0",
+        version="1.0.0",
     )
     cg.add_library(
         name="GDOLIB",
         repository="https://github.com/gelidusresearch/gdolib.git",
-        version="v1.1.5",
+        version="1.1.10",
     )
