@@ -37,6 +37,7 @@ TYPES = {
     "min_command_interval": "register_min_command_interval",
     "time_to_close": "register_time_to_close",
     "vehicle_parked_threshold": "register_vehicle_parked_threshold",
+    "vehicle_parked_threshold_variance": "register_vehicle_parked_threshold_variance",
 }
 
 CONFIG_SCHEMA = (
@@ -47,6 +48,7 @@ CONFIG_SCHEMA = (
             cv.Optional('min_command_interval', default=50): cv.uint32_t,
             cv.Optional('time_to_close', default=300): cv.uint16_t,
             cv.Optional('vehicle_parked_threshold', default=100): cv.uint16_t,
+            cv.Optional('vehicle_parked_threshold_variance', default=5): cv.uint16_t,
         }
     )
     .extend(SECPLUS_GDO_CONFIG_SCHEMA)
@@ -67,6 +69,8 @@ async def to_code(config):
         await number.register_number(var, config, min_value=0, max_value=65535, step=60)
     elif config[CONF_TYPE] == "vehicle_parked_threshold":
         await number.register_number(var, config, min_value=10, max_value=400, step=1)
+    elif config[CONF_TYPE] == "vehicle_parked_threshold_variance":
+        await number.register_number(var, config, min_value=2, max_value=15, step=1)
     else:
         await number.register_number(var, config, min_value=0x0, max_value=0xffffffff, step=1)
 
