@@ -123,25 +123,19 @@ public:
   }
 
   void register_vehicle_parked_threshold(GDONumber *num) { this->vehicle_parked_threshold_ = num; }
-  // void set_vehicle_parked_threshold(uint16_t num) {
-  // if (this->vehicle_parked_threshold_) {
-  //     this->vehicle_parked_threshold_->update_state(num);
-  //   }
-  // }
 
   uint16_t get_vehicle_parked_threshold() {
     return this->vehicle_parked_threshold_->state;
   }
 
   void register_vehicle_parked_threshold_variance(GDONumber *num) { this->vehicle_parked_threshold_variance_ = num; }
-  // void set_vehicle_parked_threshold_variance(uint16_t num) {
-  // if (this->vehicle_parked_threshold_variance_) {
-  //     this->vehicle_parked_threshold_variance_->update_state(num);
-  //   }
-  // }
 
   uint16_t get_vehicle_parked_threshold_variance() {
-    return this->vehicle_parked_threshold_variance_->state;
+    if (this->vehicle_parked_threshold_variance_ == nullptr) {
+      return 5;
+    } else {
+      return this->vehicle_parked_threshold_variance_->state;
+    }
   }
 #endif
 
