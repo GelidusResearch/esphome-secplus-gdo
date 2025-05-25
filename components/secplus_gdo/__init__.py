@@ -40,7 +40,10 @@ CONF_RF_OUTPUT_PIN = "rf_tx_pin"
 CONF_RF_INPUT_PIN = "rf_rx_pin"
 CONF_TOF_SDA_PIN = "tof_sda_pin"
 CONF_TOF_SCL_PIN = "tof_scl_pin"
+CONF_DC_OPEN_PIN = "dc_open_pin"
+CONF_DC_CLOSE_PIN = "dc_close_pin"
 CONF_SECPLUS_GDO_ID = "secplus_gdo_id"
+
 
 CONFIG_SCHEMA = cv.Schema(
     {
@@ -52,6 +55,8 @@ CONFIG_SCHEMA = cv.Schema(
         cv.Optional(CONF_TOF_SDA_PIN): pins.gpio_input_pin_schema,
         cv.Optional(CONF_TOF_SCL_PIN): pins.gpio_input_pin_schema,
         cv.Optional(CONF_INPUT_OBST): cv.Any(cv.none, pins.gpio_input_pin_schema),
+        cv.Optional(CONF_DC_OPEN_PIN): pins.gpio_input_pin_schema,
+        cv.Optional(CONF_DC_CLOSE_PIN): pins.gpio_input_pin_schema,
     }
 ).extend(cv.COMPONENT_SCHEMA)
 
@@ -75,11 +80,16 @@ async def to_code(config):
         cg.add_build_flag("-DTOF_SENSOR")
     if CONF_TOF_SCL_PIN in config and config[CONF_TOF_SCL_PIN]:
         cg.add_define("GDO_TOF_SCL_PIN", config[CONF_TOF_SCL_PIN]["number"])
+    if CONF_DC_OPEN_PIN in config and config[CONF_DC_OPEN_PIN]:
+        cg.add_define("GDO_DC_OPEN_PIN", config[CONF_DC_OPEN_PIN]["number"])
+    if CONF_DC_CLOSE_PIN in config and config[CONF_DC_CLOSE_PIN]:
+        cg.add_define("GDO_DC_CLOSE_PIN", config[CONF_DC_CLOSE_PIN]["number"])        
     if CONF_INPUT_OBST in config and config[CONF_INPUT_OBST]:
         cg.add_define("GDO_OBST_INPUT_PIN", config[CONF_INPUT_OBST]["number"])
         cg.add_define("GDO_OBST_FROM_STATE", False)
     else:
         cg.add_define("GDO_OBST_FROM_STATE", True)
+
 
     # Add the library dependencies - reads version.json in the repo for the version
     cg.add_library(
