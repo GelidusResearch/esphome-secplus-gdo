@@ -59,8 +59,8 @@ CONFIG_SCHEMA = (
 
 async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
-    if config[CONF_TYPE] == "duration":
-        await number.register_number(var, config, min_value=0x0, max_value=0xffff, step=1)
+    if config[CONF_TYPE] == "open_duration" or config[CONF_TYPE] == "close_duration":
+        await number.register_number(var, config, min_value=0.0, max_value=120.0, step=1)
     elif config[CONF_TYPE] == "client_id":
         await number.register_number(var, config, min_value=0x666, max_value=0x7ff666, step=1)
     elif config[CONF_TYPE] == "min_command_interval":
@@ -72,7 +72,7 @@ async def to_code(config):
     elif config[CONF_TYPE] == "vehicle_parked_threshold_variance":
         await number.register_number(var, config, min_value=2, max_value=15, step=1)
     else:
-        await number.register_number(var, config, min_value=0x0, max_value=0xffffffff, step=1)
+        await number.register_number(var, config, min_value=0x0, max_value=0xffff, step=1)
 
     await cg.register_component(var, config)
     parent = await cg.get_variable(config[CONF_SECPLUS_GDO_ID])

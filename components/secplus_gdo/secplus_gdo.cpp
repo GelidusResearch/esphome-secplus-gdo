@@ -76,15 +76,27 @@ namespace esphome
         {
           gdo->set_protocol_state(status->protocol);
         }
+        if (status->protocol == GDO_PROTOCOL_DRY_CONTACT)
+        {
+          // For dry contact protocol, we set the sync state to true
+          // as it does not support sync state but we want to indicate
+          // that the device is ready
+          gdo->set_sync_state(true);
+          break;
+        }
         gdo->set_sync_state(status->synced);
         break;
+#ifdef GDO_LIGHT
       case GDO_CB_EVENT_LIGHT:
         gdo->set_light_state(status->light);
         break;
+#endif
+#ifdef GDO_LOCK
       case GDO_CB_EVENT_LOCK:
         gdo->set_lock_state(status->lock);
         break;
-      case GDO_CB_EVENT_DOOR_POSITION:
+#endif
+        case GDO_CB_EVENT_DOOR_POSITION:
       {
         float position = (float)(10000 - status->door_position) / 10000.0f;
         gdo->set_door_state(status->door, position);
@@ -183,6 +195,12 @@ namespace esphome
           std::bind(&esphome::secplus_gdo::GDODoor::set_toggle_only, this->door_,
                     std::placeholders::_1));
 #endif
+// #ifdef GDO_OBST_OVERRIDE
+//       this->door_->set_obst_override(this->obst_override_switch_->state);
+//       this->obst_override_switch_->set_control_function(
+//           std::bind(&esphome::secplus_gdo::GDODoor::set_obst_override, this->door_,
+//                     std::placeholders::_1));
+// #endif
       gdo_config_t gdo_conf = {
           .uart_num = UART_NUM_1,
           .obst_from_status = GDO_OBST_FROM_STATE,
@@ -204,7 +222,23 @@ namespace esphome
 #else
           .rf_rx_pin = (gpio_num_t)-1,
 #endif
-      };
+#ifdef GDO_DC_OPEN_PIN
+          .dc_open_pin = (gpio_num_t)GDO_DC_OPEN_PIN,
+#else
+          .dc_open_pin = (gpio_num_t)-1,
+#endif
+#ifdef GDO_DC_CLOSE_PIN
+          .dc_close_pin = (gpio_num_t)GDO_DC_CLOSE_PIN,
+#else
+          .dc_close_pin = (gpio_num_t)-1,
+#endif
+// #ifdef GDO_DC_TOGGLE_PIN
+//           .dc_toggle_pin = (gpio_num_t)GDO_DC_TOGGLE_PIN,
+// #else
+//           .dc_toggle_pin = (gpio_num_t)-1,
+// #endif
+};
+
 #ifdef TOF_SENSOR
       gdo_set_tof_timer(100000, true);
 #endif
@@ -240,24 +274,25 @@ namespace esphome
       {
         this->door_->set_sync_state(synced);
       }
-
+#ifdef GDO_LIGHT
       if (this->light_)
       {
         this->light_->set_sync_state(synced);
       }
-
+#endif
+#ifdef GDO_LOCK
       if (this->lock_)
       {
         this->lock_->set_sync_state(synced);
       }
-
+#endif
       if (this->f_sync)
       {
         this->f_sync(synced);
       }
     }
 
-     void GDOComponent::dump_config()
+    void GDOComponent::dump_config()
     {
       ESP_LOGCONFIG(TAG, "Setting up secplus GDO ...");
     }

@@ -57,6 +57,12 @@ CONFIG_SCHEMA = (
 
 async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
+    if config[CONF_TYPE] == "sync":
+        cg.add_build_flag("-DGDO_SYNC")
+    if config[CONF_TYPE] == "button":
+        cg.add_build_flag("-DGDO_BUTTON")
+    if config[CONF_TYPE] == "motion":
+        cg.add_build_flag("-DGDO_MOTION")
     await binary_sensor.register_binary_sensor(var, config)
     await cg.register_component(var, config)
     parent = await cg.get_variable(config[CONF_SECPLUS_GDO_ID])

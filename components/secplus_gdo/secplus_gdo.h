@@ -26,12 +26,21 @@ extern "C" {
 }
 #include "vehicle.h"
 #endif
-#include "light/gdo_light.h"
-#include "lock/gdo_lock.h"
 #include "number/gdo_number.h"
 #include "esphome/core/defines.h"
 #include "select/gdo_select.h"
+#include "cover/gdo_door.h"
+#ifdef GDO_LIGHT
+#include "light/gdo_light.h"
+#endif
+#ifdef GDO_LOCK
+#include "lock/gdo_lock.h"
+#endif
+#ifdef GDO_SWITCH
 #include "switch/gdo_switch.h"
+#endif
+
+
 
 namespace esphome {
 namespace secplus_gdo {
@@ -139,7 +148,6 @@ public:
   }
 #endif
 
-
   void register_door(GDODoor *door) { this->door_ = door; }
   void set_door_state(gdo_door_state_t state, float position) {
     if (this->door_) {
@@ -147,38 +155,53 @@ public:
     }
   }
 
+#ifdef GDO_LIGHT
   void register_light(GDOLight *light) { this->light_ = light; }
   void set_light_state(gdo_light_state_t state) {
     if (this->light_) {
       this->light_->set_state(state);
     }
   }
+#endif
 
+#ifdef GDO_LOCK
   void register_lock(GDOLock *lock) { this->lock_ = lock; }
   void set_lock_state(gdo_lock_state_t state) {
     if (this->lock_) {
       this->lock_->set_state(state);
     }
   }
+#endif
 
+#ifdef GDO_LEARN
   void register_learn(GDOSwitch *sw) { this->learn_switch_ = sw; }
   void set_learn_state(gdo_learn_state_t state) {
     if (this->learn_switch_) {
       this->learn_switch_->write_state(state == GDO_LEARN_STATE_ACTIVE);
     }
   }
+#endif
+
+#ifdef GDO_OBST_OVERRIDE
+  void register_obst_override(GDOSwitch *sw) { this->obst_override_switch_ = sw; }
+  void set_obst_override(bool state) {
+    if (this->obst_override_switch_) {
+      this->obst_override_switch_->write_state(state);
+    }
+  }
+#endif
 
   void register_open_duration(GDONumber *num) { open_duration_ = num; }
   void set_open_duration(uint16_t ms) {
     if (open_duration_) {
-      open_duration_->update_state(ms);
+      open_duration_->update_state(ms / 1000); // Convert ms to seconds
     }
   }
 
   void register_close_duration(GDONumber *num) { close_duration_ = num; }
   void set_close_duration(uint16_t ms) {
     if (close_duration_) {
-      close_duration_->update_state(ms);
+      close_duration_->update_state(ms / 1000); // Convert ms to seconds
     }
   }
 
@@ -210,7 +233,15 @@ public:
     }
   }
 
+#ifdef GDO_TOGGLE_ONLY
   void register_toggle_only(GDOSwitch *sw) { this->toggle_only_switch_ = sw; }
+#endif
+
+// #ifdef GDO_OBST_OVERRIDE
+//   void register_obst_override(GDOSwitch *sw) { this->obst_override_switch_ = sw; }
+//   void set_obst_override_switch(GDOSwitch *sw) { obst_override_switch_ = sw; }
+// #endif
+
   void set_sync_state(bool synced);
 
 protected:
@@ -225,8 +256,12 @@ protected:
   std::function<void(bool)> f_sync{nullptr};
 
   GDODoor *door_{nullptr};
+#ifdef GDO_LIGHT
   GDOLight *light_{nullptr};
+#endif
+#ifdef GDO_LOCK
   GDOLock *lock_{nullptr};
+#endif
   GDONumber *open_duration_{nullptr};
   GDONumber *close_duration_{nullptr};
   GDONumber *client_id_{nullptr};
@@ -244,8 +279,15 @@ protected:
   std::function<void(bool)> f_vehicle_arriving{nullptr};
 #endif
   GDOSelect *protocol_select_{nullptr};
+#ifdef GDO_LEARN
   GDOSwitch *learn_switch_{nullptr};
+#endif
+#ifdef GDO_TOGGLE_ONLY
   GDOSwitch *toggle_only_switch_{nullptr};
+#endif
+#ifdef GDO_OBST_OVERRIDE
+  GDOSwitch *obst_override_switch_{nullptr};
+#endif
   bool start_gdo_{false};
 
 }; // GDOComponent

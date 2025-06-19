@@ -75,7 +75,7 @@ void GDODoor::do_action_after_warning(const cover::CoverCall &call) {
     return;
   }
 
-  ESP_LOGD(TAG, "WARNING for %dms", this->pre_close_duration_);
+  ESP_LOGD(TAG, "Pre close warning time set as: %dms", this->pre_close_duration_);
   if (this->pre_close_start_trigger) {
     this->pre_close_start_trigger->trigger();
   }
@@ -154,13 +154,13 @@ void GDODoor::do_action(const cover::CoverCall &call) {
 }
 
 void GDODoor::control(const cover::CoverCall &call) {
+
   if (!this->synced_) {
     this->publish_state(false);
     return;
   }
 
   if (call.get_stop()) {
-    ESP_LOGD(TAG, "Stop command received");
     if (this->pre_close_active_) {
       ESP_LOGD(TAG, "Canceling pending action");
       this->cancel_timeout("pre_close");
@@ -173,8 +173,8 @@ void GDODoor::control(const cover::CoverCall &call) {
     this->do_action(call);
   }
 
-  if (call.get_toggle()) {
-    ESP_LOGD(TAG, "Toggle command received");
+  if (call.get_toggle() == true) {
+    ESP_LOGI(TAG, "Toggle command received");
     if (this->position != COVER_CLOSED) {
       this->target_position_ = COVER_CLOSED;
       this->do_action_after_warning(call);

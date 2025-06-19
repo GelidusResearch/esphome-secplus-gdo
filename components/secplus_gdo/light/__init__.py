@@ -42,3 +42,4 @@ async def to_code(config):
     await light.register_light(var, config)
     parent = await cg.get_variable(config[CONF_SECPLUS_GDO_ID])
     cg.add(parent.register_light(var))
+    cg.add_build_flag("-DGDO_LIGHT")

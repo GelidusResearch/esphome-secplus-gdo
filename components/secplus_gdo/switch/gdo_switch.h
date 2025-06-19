@@ -1,6 +1,7 @@
 /************************************
  *
  * Copyright (C) 2024 Konnected.io
+ * Copyright (C) 2025 Gelidus Research Inc
  *
  * GNU GENERAL PUBLIC LICENSE
  ************************************/
@@ -19,6 +20,7 @@ namespace secplus_gdo {
 enum SwitchType {
   LEARN,
   TOGGLE_ONLY,
+  OBST_OVERRIDE,
 };
 
 class GDOSwitch : public switch_::Switch, public Component {
@@ -53,6 +55,11 @@ public:
       } else {
         gdo_deactivate_learn();
       }
+    }
+
+    if (this->type_ == SwitchType::OBST_OVERRIDE) {
+      this->pref_.save(&state);
+      gdo_set_obst_override(state);
     }
 
     this->publish_state(state);
