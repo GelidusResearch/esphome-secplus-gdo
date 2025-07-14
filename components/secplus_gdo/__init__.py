@@ -97,8 +97,10 @@ async def to_code(config):
         repository="https://github.com/gelidusresearch/VL53L1_ESPIDF.git",
         version="1.0.0",
     )
-    cg.add_library(
-        name="GDOLIB",
-        repository="https://github.com/gelidusresearch/gdolib.git",
-        version="1.1.10",
-    )
+    
+    
+    # cg.add_library(
+    #     name="GDOLIB",
+    #     repository="https://github.com/gelidusresearch/gdolib.git",
+    #     version="1.2.2",
+    # )

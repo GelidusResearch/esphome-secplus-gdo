@@ -34,7 +34,16 @@ public:
     this->pref_ =
         global_preferences->make_preference<float>(this->get_object_id_hash());
     if (!this->pref_.load(&value)) {
-      value = 0;
+      // Set appropriate default values based on the component type
+      std::string obj_id = this->get_object_id();
+      if (obj_id.find("min_command_interval") != std::string::npos) {
+        value = 250;  // Default 250ms for min command interval
+      } else if (obj_id.find("open_duration") != std::string::npos || 
+                 obj_id.find("close_duration") != std::string::npos) {
+        value = 0.0f;  // Default 0.0s for duration measurements
+      } else {
+        value = this->traits.get_min_value();
+      }
     }
 
     this->control(value);
