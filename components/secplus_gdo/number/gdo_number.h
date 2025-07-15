@@ -20,6 +20,7 @@
 #include "esphome/components/number/number.h"
 #include "esphome/core/component.h"
 #include "esphome/core/preferences.h"
+#include <cmath>
 
 
 namespace esphome {
@@ -46,6 +47,7 @@ public:
       }
     }
 
+    this->last_saved_value_ = value;  // Initialize last saved value
     this->control(value);
   }
 
@@ -56,7 +58,25 @@ public:
 
     this->state = value;
     this->publish_state(value);
-    this->pref_.save(&value);
+    
+    // Only save to persistent storage if the value has changed significantly
+    // This reduces flash writes and improves responsiveness
+    std::string obj_id = this->get_object_id();
+    if (obj_id.find("open_duration") != std::string::npos || 
+        obj_id.find("close_duration") != std::string::npos) {
+      // For duration measurements, only save if changed by more than 0.1s
+      // and debounce saves to reduce flash writes during door movement
+      if (fabs(value - last_saved_value_) > 0.1f) {
+        this->cancel_timeout("save_duration");
+        this->set_timeout("save_duration", 2000, [this, value]() {
+          this->pref_.save(&value);
+          this->last_saved_value_ = value;
+        });
+      }
+    } else {
+      // For other number types, save immediately
+      this->pref_.save(&value);
+    }
   }
 
   void control(float value) override {
@@ -67,6 +87,10 @@ public:
     if (this->f_control) {
       this->f_control(value);
       this->update_state(value);
+      // For user-controlled values, save immediately to ensure persistence
+      this->cancel_timeout("save_duration");
+      this->pref_.save(&value);
+      this->last_saved_value_ = value;
     }
   }
 
@@ -75,6 +99,7 @@ public:
  protected:
   ESPPreferenceObject pref_;
   std::function<void(float)> f_control{nullptr};
+  float last_saved_value_{0.0f};  // Track last saved value to reduce flash writes
 };
 } // namespace secplus_gdo
 } // namespace esphome

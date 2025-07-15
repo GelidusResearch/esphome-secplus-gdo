@@ -201,11 +201,11 @@ namespace esphome
                  status->paired_devices.total_all);
         break;
       case GDO_CB_EVENT_OPEN_DURATION_MEASUREMENT:
-        ESP_LOGI(TAG, "Open duration: %d", status->open_ms);
+        ESP_LOGD(TAG, "Open duration: %d", status->open_ms);  // Changed to LOGD to reduce console spam
         gdo->set_open_duration(status->open_ms);
         break;
       case GDO_CB_EVENT_CLOSE_DURATION_MEASUREMENT:
-        ESP_LOGI(TAG, "Close duration: %d", status->close_ms);
+        ESP_LOGD(TAG, "Close duration: %d", status->close_ms);  // Changed to LOGD to reduce console spam
         gdo->set_close_duration(status->close_ms);
         break;
 #ifdef TOF_SENSOR
