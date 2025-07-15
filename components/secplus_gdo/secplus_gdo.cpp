@@ -18,6 +18,7 @@
 
 #include "esphome/core/application.h"
 #include "esphome/core/log.h"
+#include "esphome/core/helpers.h"
 #include "inttypes.h"
 #include "secplus_gdo.h"
 #ifdef TOF_SENSOR
@@ -37,10 +38,26 @@ namespace esphome
 #endif
 
     static const char *const TAG = "secplus_gdo";
+    
+    // Add diagnostic counters to measure event frequency
+    static uint32_t door_position_events = 0;
+    static uint32_t duration_events = 0;
+    static uint32_t last_diagnostic_time = 0;
 
     static void gdo_event_handler(const gdo_status_t *status, gdo_cb_event_t event, void *arg)
     {
       GDOComponent *gdo = static_cast<GDOComponent *>(arg);
+      
+      // Print diagnostic info every 10 seconds
+      uint32_t now = millis();
+      if (now - last_diagnostic_time > 10000) {
+        ESP_LOGI(TAG, "Event frequency: %d door_position, %d duration events in last 10s", 
+                 door_position_events, duration_events);
+        door_position_events = 0;
+        duration_events = 0;
+        last_diagnostic_time = now;
+      }
+      
       switch (event)
       {
       case GDO_CB_EVENT_SYNCED:
@@ -118,8 +135,10 @@ namespace esphome
         gdo->set_lock_state(status->lock);
         break;
       case GDO_CB_EVENT_DOOR_POSITION:
-        ESP_LOGI(TAG, "Door state: %d, position: %d", status->door, status->door_position);
-        {
+        door_position_events++;  // Count door position events
+        ESP_LOGV(TAG, "Door state: %d, position: %d", status->door, status->door_position);  // Changed to LOGV to reduce spam
+        // Defer the door position update to avoid blocking the event handler
+        gdo->defer_operation("door_position_update", 1, [gdo, status]() {
           float position = (float)(10000 - status->door_position) / 10000.0f;
           
           if (status->door > GDO_DOOR_STATE_CLOSING &&
@@ -145,7 +164,7 @@ namespace esphome
           {
             gdo->set_motor_state(GDO_MOTOR_STATE_OFF);
           }
-        }
+        });
         break;
       case GDO_CB_EVENT_LEARN:
         ESP_LOGI(TAG, "Learn: %s", gdo_learn_state_to_string(status->learn));
@@ -201,12 +220,20 @@ namespace esphome
                  status->paired_devices.total_all);
         break;
       case GDO_CB_EVENT_OPEN_DURATION_MEASUREMENT:
-        ESP_LOGD(TAG, "Open duration: %d", status->open_ms);  // Changed to LOGD to reduce console spam
-        gdo->set_open_duration(status->open_ms);
+        duration_events++;  // Count duration events
+        ESP_LOGV(TAG, "Open duration: %d", status->open_ms);  // Changed to LOGV to reduce spam even more
+        // Defer the duration update to avoid blocking the event handler
+        gdo->defer_operation("open_duration_update", 5, [gdo, ms = status->open_ms]() {
+          gdo->set_open_duration(ms);
+        });
         break;
       case GDO_CB_EVENT_CLOSE_DURATION_MEASUREMENT:
-        ESP_LOGD(TAG, "Close duration: %d", status->close_ms);  // Changed to LOGD to reduce console spam
-        gdo->set_close_duration(status->close_ms);
+        duration_events++;  // Count duration events
+        ESP_LOGV(TAG, "Close duration: %d", status->close_ms);  // Changed to LOGV to reduce spam even more
+        // Defer the duration update to avoid blocking the event handler
+        gdo->defer_operation("close_duration_update", 5, [gdo, ms = status->close_ms]() {
+          gdo->set_close_duration(ms);
+        });
         break;
 #ifdef TOF_SENSOR
       case GDO_CB_EVENT_TOF_TIMER:
