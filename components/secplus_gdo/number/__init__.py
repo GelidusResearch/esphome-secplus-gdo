@@ -45,7 +45,7 @@ CONFIG_SCHEMA = (
     .extend(
         {
             cv.Required(CONF_TYPE): cv.enum(TYPES, lower=True),
-            cv.Optional('min_command_interval', default=500): cv.uint32_t,
+            cv.Optional('min_command_interval', default=250): cv.uint32_t,
             cv.Optional('time_to_close', default=300): cv.uint16_t,
             cv.Optional('vehicle_parked_threshold', default=100): cv.uint16_t,
             cv.Optional('vehicle_parked_threshold_variance', default=5): cv.uint16_t,
@@ -77,12 +77,8 @@ async def to_code(config):
         # Security+ V2 rolling code: 32-bit value, but practical max around 16M (0xFFFFFF)
         await number.register_number(var, config, min_value=0, max_value=0xFFFFFF, step=1)
     elif config[CONF_TYPE] == "min_command_interval":
-        # Min command interval: 50-1000ms, default 500ms
-        # Override min_value behavior by setting the initial state to 500
-        await number.register_number(var, config, min_value=50, max_value=1500, step=50)
-        # Set the default value to 500 (will be used when no stored value exists)
-        cg.add(var.traits.set_min_value(50))  # Ensure min is 50
-        # We'll handle the 500 default in the component setup
+        # Min command interval: 250-1500ms, default 250ms (changed from 500ms for better responsiveness)
+        await number.register_number(var, config, min_value=250, max_value=1500, step=50)
     elif config[CONF_TYPE] == "time_to_close":
         await number.register_number(var, config, min_value=0, max_value=65535, step=60)
     elif config[CONF_TYPE] == "vehicle_parked_threshold":
