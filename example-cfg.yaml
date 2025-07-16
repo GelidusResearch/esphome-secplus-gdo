@@ -114,7 +114,7 @@ sensor:
   #   secplus_gdo_id: ${id_prefix}
   #   id: gdo_tof_distance
   #   type: tof_distance
-#    name: "Vehicle Measured Distance" # Can be left commented to avoid cluttering the UI 
+#    name: "Vehicle Measured Distance" # Can be left commented to avoid cluttering the UI
   #   unit_of_measurement: "cm"
   #   internal: true
   #   filters:
@@ -265,6 +265,13 @@ switch:
     secplus_gdo_id: ${id_prefix}
     name: Toggle Only
     icon: mdi:plus-box
+
+  # - platform: secplus_gdo
+  #   id: gdo_obst_override
+  #   type: obst_override
+  #   secplus_gdo_id: grgdo
+  #   name: Obstruction Override
+  #   icon: mdi:plus-box
 
 select:
   - platform: secplus_gdo

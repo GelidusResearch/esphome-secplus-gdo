@@ -215,6 +215,7 @@ public:
   }
 
   void register_toggle_only(GDOSwitch *sw) { this->toggle_only_switch_ = sw; }
+  void register_obst_override(GDOSwitch *sw) { this->obst_override_switch_ = sw; }
   void set_sync_state(bool synced);
 
   // Public method to defer operations to avoid blocking in event handlers
@@ -281,6 +282,7 @@ protected:
   GDOSelect *protocol_select_{nullptr};
   GDOSwitch *learn_switch_{nullptr};
   GDOSwitch *toggle_only_switch_{nullptr};
+  GDOSwitch *obst_override_switch_{nullptr};
   bool start_gdo_{false};
   bool gdo_started_{false};
 

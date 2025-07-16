@@ -19,6 +19,7 @@ namespace secplus_gdo {
 enum SwitchType {
   LEARN,
   TOGGLE_ONLY,
+  OBST_OVERRIDE,
 };
 
 class GDOSwitch : public switch_::Switch, public Component {
@@ -41,6 +42,13 @@ public:
     }
 
     if (this->type_ == SwitchType::TOGGLE_ONLY) {
+      if (this->f_control) {
+        this->f_control(state);
+        this->pref_.save(&state);
+      }
+    }
+
+    if (this->type_ == SwitchType::OBST_OVERRIDE) {
       if (this->f_control) {
         this->f_control(state);
         this->pref_.save(&state);

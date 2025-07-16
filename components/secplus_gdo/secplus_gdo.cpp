@@ -280,6 +280,14 @@ namespace esphome
           std::bind(&esphome::secplus_gdo::GDODoor::set_toggle_only, this->door_,
                     std::placeholders::_1));
 #endif
+#ifdef GDO_OBST_OVERRIDE
+      // Set the obstruction override state and control
+      this->obst_override_switch_->set_control_function(
+          [this](bool state) {
+            ESP_LOGI("GDOComponent", "Obstruction override %s", state ? "enabled" : "disabled");
+            gdo_set_obst_override(state);
+          });
+#endif
       gdo_config_t gdo_conf = {
           .uart_num = UART_NUM_1,
           .obst_from_status = GDO_OBST_FROM_STATE,
