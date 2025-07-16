@@ -69,7 +69,7 @@ async def to_code(config):
     elif config[CONF_TYPE] == "close_duration":
         # Garage door close duration: 0 seconds to 240 seconds (displayed in seconds with 0.1s precision)
         config_with_unit = config.copy()
-        config_with_unit['unit_of_measurement'] = UNIT_SECOND  
+        config_with_unit['unit_of_measurement'] = UNIT_SECOND
         await number.register_number(var, config_with_unit, min_value=0, max_value=240, step=0.1)
     elif config[CONF_TYPE] == "client_id":
         await number.register_number(var, config, min_value=0x666, max_value=0x7ff666, step=1)
@@ -93,7 +93,7 @@ async def to_code(config):
     fcall = str(parent) + "->" + str(TYPES[config[CONF_TYPE]])
     text = fcall + "(" + str(var) + ")"
     cg.add((cg.RawExpression(text)))
-    
+
     # Duration measurements are read-only (reported by garage door opener)
     # Don't set control functions for duration types
     if config[CONF_TYPE] not in ["open_duration", "close_duration"]:

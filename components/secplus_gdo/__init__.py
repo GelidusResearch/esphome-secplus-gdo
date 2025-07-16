@@ -83,13 +83,12 @@ async def to_code(config):
     if CONF_DC_OPEN_PIN in config and config[CONF_DC_OPEN_PIN]:
         cg.add_define("GDO_DC_OPEN_PIN", config[CONF_DC_OPEN_PIN]["number"])
     if CONF_DC_CLOSE_PIN in config and config[CONF_DC_CLOSE_PIN]:
-        cg.add_define("GDO_DC_CLOSE_PIN", config[CONF_DC_CLOSE_PIN]["number"])        
+        cg.add_define("GDO_DC_CLOSE_PIN", config[CONF_DC_CLOSE_PIN]["number"])
     if CONF_INPUT_OBST in config and config[CONF_INPUT_OBST]:
         cg.add_define("GDO_OBST_INPUT_PIN", config[CONF_INPUT_OBST]["number"])
         cg.add_define("GDO_OBST_FROM_STATE", False)
     else:
         cg.add_define("GDO_OBST_FROM_STATE", True)
-
 
     # Add the library dependencies - reads version.json in the repo for the version
     cg.add_library(
@@ -97,8 +96,8 @@ async def to_code(config):
         repository="https://github.com/gelidusresearch/VL53L1_ESPIDF.git",
         version="1.0.0",
     )
-    
-    
+
+
     # cg.add_library(
     #     name="GDOLIB",
     #     repository="https://github.com/gelidusresearch/gdolib.git",

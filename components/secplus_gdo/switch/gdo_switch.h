@@ -49,8 +49,10 @@ public:
 
     if (this->type_ == SwitchType::LEARN) {
       if (state) {
+        ESP_LOGI("GDOSwitch", "Learn mode activated - will auto-off after 60 seconds");
         gdo_activate_learn();
       } else {
+        ESP_LOGI("GDOSwitch", "Learn mode deactivated");
         gdo_deactivate_learn();
       }
     }

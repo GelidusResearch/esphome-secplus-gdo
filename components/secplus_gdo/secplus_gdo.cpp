@@ -38,7 +38,7 @@ namespace esphome
 #endif
 
     static const char *const TAG = "secplus_gdo";
-    
+
     // Add diagnostic counters to measure event frequency
     static uint32_t door_position_events = 0;
     static uint32_t duration_events = 0;
@@ -47,17 +47,17 @@ namespace esphome
     static void gdo_event_handler(const gdo_status_t *status, gdo_cb_event_t event, void *arg)
     {
       GDOComponent *gdo = static_cast<GDOComponent *>(arg);
-      
+
       // Print diagnostic info every 10 seconds
       uint32_t now = millis();
       if (now - last_diagnostic_time > 10000) {
-        ESP_LOGI(TAG, "Event frequency: %d door_position, %d duration events in last 10s", 
+        ESP_LOGI(TAG, "Event frequency: %d door_position, %d duration events in last 10s",
                  door_position_events, duration_events);
         door_position_events = 0;
         duration_events = 0;
         last_diagnostic_time = now;
       }
-      
+
       switch (event)
       {
       case GDO_CB_EVENT_SYNCED:
@@ -82,7 +82,7 @@ namespace esphome
           if (gdo->should_retry_sync())
           {
             gdo->increment_sync_retry();
-            
+
             // Only increment rolling code if we have a valid starting value
             uint32_t new_rolling_code = status->rolling_code;
             if (new_rolling_code > 0) {
@@ -92,7 +92,7 @@ namespace esphome
               new_rolling_code = 100;
               ESP_LOGW(TAG, "Rolling code was 0, using initial value: %" PRIu32, new_rolling_code);
             }
-            
+
             // Use public defer method to avoid blocking the event handler
             // Capture the rolling code and current retry count for the timeout callback
             uint8_t current_retry = gdo->get_sync_retry_count();
@@ -106,7 +106,7 @@ namespace esphome
               {
                 ESP_LOGI(TAG, "Rolling code set to %" PRIu32 ", retrying sync (attempt %d/%d)",
                          new_rolling_code, current_retry, max_retries);
-                
+
                 // Retry sync without blocking delay
                 // The GDO library will handle its own timing internally
                 gdo_sync();
@@ -140,15 +140,15 @@ namespace esphome
         // Defer the door position update to avoid blocking the event handler
         gdo->defer_operation("door_position_update", 1, [gdo, status]() {
           float position = (float)(10000 - status->door_position) / 10000.0f;
-          
+
           if (status->door > GDO_DOOR_STATE_CLOSING &&
               status->door < GDO_DOOR_STATE_OPENING)
           {
             // If the door is not in a known state, we assume it is open
             ESP_LOGW(TAG, "Door state unknown, assuming open");
             gdo->set_door_state(GDO_DOOR_STATE_OPEN, position);
-          } 
-          else if (status->door > GDO_DOOR_STATE_MAX) 
+          }
+          else if (status->door > GDO_DOOR_STATE_MAX)
           {
             // Invalid door state, default to open
             ESP_LOGW(TAG, "Invalid door state %d, assuming open", status->door);
@@ -159,7 +159,7 @@ namespace esphome
             // Normal case - valid door state
             gdo->set_door_state((gdo_door_state_t)status->door, position);
           }
-          
+
           if (status->door != GDO_DOOR_STATE_OPENING && status->door != GDO_DOOR_STATE_CLOSING)
           {
             gdo->set_motor_state(GDO_MOTOR_STATE_OFF);
@@ -168,6 +168,19 @@ namespace esphome
         break;
       case GDO_CB_EVENT_LEARN:
         ESP_LOGI(TAG, "Learn: %s", gdo_learn_state_to_string(status->learn));
+        gdo->set_learn_state(status->learn);
+
+        // Auto-off learn mode after 1 minute (60 seconds) to prevent learning undesirable devices
+        if (status->learn == GDO_LEARN_STATE_ACTIVE) {
+          ESP_LOGI(TAG, "Learn mode will auto-off after 60 seconds");
+          gdo->defer_operation("learn_auto_off", 60000, []() {
+            ESP_LOGI(TAG, "Learn mode auto-off timeout reached");
+            gdo_deactivate_learn();
+          });
+        } else {
+          // Cancel auto-off if learn mode is manually disabled
+          gdo->cancel_operation("learn_auto_off");
+        }
         break;
       case GDO_CB_EVENT_OBSTRUCTION:
         ESP_LOGI(TAG, "Obstruction: %s",
@@ -192,7 +205,7 @@ namespace esphome
       case GDO_CB_EVENT_OPENINGS:
         ESP_LOGI(TAG, "Openings: %d", status->openings);
         gdo->set_openings(status->openings);
-        
+
         break;
       case GDO_CB_EVENT_SET_TTC:
         ESP_LOGI(TAG, "Set Time to close: %d", status->ttc_seconds);
@@ -294,7 +307,7 @@ namespace esphome
 #endif
       gdo_init(&gdo_conf);
       gdo_get_status(&this->status_);
-      
+
       // Initialize client ID and rolling code from stored values (if available)
       // This is essential for first-run and after reboot functionality
       if (this->client_id_) {
@@ -307,16 +320,16 @@ namespace esphome
           client_id_to_use = (uint32_t)this->client_id_->traits.get_min_value();
           ESP_LOGI(TAG, "No stored client ID, using initial value: %" PRIu32, client_id_to_use);
         }
-        
+
         // If client ID is still 0, it's invalid - use a reasonable default
         if (client_id_to_use == 0) {
           client_id_to_use = 1000;  // Default client ID
           ESP_LOGW(TAG, "Client ID was 0, using default: %" PRIu32, client_id_to_use);
         }
-        
+
         gdo_set_client_id(client_id_to_use);
       }
-      
+
       if (this->rolling_code_) {
         uint32_t rolling_code_to_use = 0;
         if (this->rolling_code_->has_state()) {
@@ -327,21 +340,21 @@ namespace esphome
           rolling_code_to_use = (uint32_t)this->rolling_code_->traits.get_min_value();
           ESP_LOGI(TAG, "No stored rolling code, using initial value: %" PRIu32, rolling_code_to_use);
         }
-        
+
         // If rolling code is still 0, use a reasonable default
         if (rolling_code_to_use == 0) {
           rolling_code_to_use = 1000;  // Default rolling code
           ESP_LOGW(TAG, "Rolling code was 0, using default: %" PRIu32, rolling_code_to_use);
         }
-        
+
         gdo_set_rolling_code(rolling_code_to_use);
       }
-      
+
 #ifdef TOF_SENSOR
       vt.setup_tof_sensor(gpio_num_t(GDO_TOF_SDA_PIN), gpio_num_t(GDO_TOF_SCL_PIN), 400000);
       delay(100);
 #endif
-      
+
       if (this->start_gdo_)
       {
         gdo_start(gdo_event_handler, this);
@@ -402,15 +415,15 @@ extern "C"
   void __wrap_esp_panic_handler(void *info)
   {
     esp_rom_printf("PANIC: DISABLING GDO UART TX PIN!\n");
-    
+
     // Disable the UART TX pin and set it as input
     // This prevents spurious signals during panic that could trigger the garage door
     esp_rom_gpio_pad_select_gpio(GDO_UART_TX_PIN);
     esp_rom_gpio_pad_set_drv(GDO_UART_TX_PIN, 0);
-    
+
     // Disable output (set as input)
     REG_WRITE(GPIO_ENABLE_W1TC_REG, (1 << GDO_UART_TX_PIN));
-    
+
     // Set pin low using output register (even though it's input, this sets the internal state)
     REG_WRITE(GPIO_OUT_W1TC_REG, (1 << GDO_UART_TX_PIN));
 
