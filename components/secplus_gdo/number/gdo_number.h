@@ -32,23 +32,37 @@ public:
 
   void setup() override {
     float value;
+    std::string obj_id = this->get_object_id();
+    bool is_duration = (obj_id.find("open_duration") != std::string::npos || 
+                       obj_id.find("close_duration") != std::string::npos);
+    
+    // Load value from preferences
     this->pref_ =
         global_preferences->make_preference<float>(this->get_object_id_hash());
     if (!this->pref_.load(&value)) {
       // Set appropriate default values based on the component type
-      std::string obj_id = this->get_object_id();
       if (obj_id.find("min_command_interval") != std::string::npos) {
         value = 250;  // Default 250ms for min command interval
-      } else if (obj_id.find("open_duration") != std::string::npos || 
-                 obj_id.find("close_duration") != std::string::npos) {
-        value = 0.0f;  // Default 0.0s for duration measurements
+        ESP_LOGI("GDONumber", "No stored min_command_interval, using default: %.1f", value);
+      } else if (is_duration) {
+        // For duration measurements, don't set an initial state if no measurement exists
+        ESP_LOGI("GDONumber", "No stored duration for %s, will remain unknown until measured", obj_id.c_str());
+        this->last_saved_value_ = 0.0f;  // Initialize with 0 for tracking
+        return;  // Don't set state or publish - let it remain unknown
       } else {
         value = this->traits.get_min_value();
+        ESP_LOGI("GDONumber", "No stored value for %s, using min_value: %.1f", obj_id.c_str(), value);
       }
+    } else {
+      ESP_LOGI("GDONumber", "Loaded stored value for %s: %.1f", obj_id.c_str(), value);
     }
 
     this->last_saved_value_ = value;  // Initialize last saved value
-    this->control(value);
+    
+    // Initialize state properly for all number types
+    // For duration measurements, only set state if we have a valid stored value
+    this->state = value;
+    this->publish_state(value);
   }
 
   void update_state(float value) {
