@@ -19,6 +19,7 @@ namespace secplus_gdo {
 enum SwitchType {
   LEARN,
   TOGGLE_ONLY,
+  OBST_OVERRIDE,
 };
 
 class GDOSwitch : public switch_::Switch, public Component {
@@ -47,10 +48,19 @@ public:
       }
     }
 
+    if (this->type_ == SwitchType::OBST_OVERRIDE) {
+      if (this->f_control) {
+        this->f_control(state);
+        this->pref_.save(&state);
+      }
+    }
+
     if (this->type_ == SwitchType::LEARN) {
       if (state) {
+        ESP_LOGI("GDOSwitch", "Learn mode activated - will auto-off after 60 seconds");
         gdo_activate_learn();
       } else {
+        ESP_LOGI("GDOSwitch", "Learn mode deactivated");
         gdo_deactivate_learn();
       }
     }

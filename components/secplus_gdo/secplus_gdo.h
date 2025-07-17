@@ -17,7 +17,6 @@
 
 #pragma once
 #include "include/gdo.h"
-//#include <functional>
 #include "cover/gdo_door.h"
 #include "esphome/core/component.h"
 #include "esphome/core/defines.h"
@@ -123,20 +122,23 @@ public:
       }
   }
 
-  #ifdef TOF_SENSOR
   void register_vehicle_parked_threshold(GDONumber *num) { this->vehicle_parked_threshold_ = num; }
-  void set_vehicle_parked_threshold(uint16_t num) {
-  if (this->vehicle_parked_threshold_) {
-      this->vehicle_parked_threshold_->update_state(num);
-    }
-  }
 
   uint16_t get_vehicle_parked_threshold() {
-        return this->vehicle_parked_threshold_->state;
+    return this->vehicle_parked_threshold_->state;
+  }
+
+  void register_vehicle_parked_threshold_variance(GDONumber *num) { this->vehicle_parked_threshold_variance_ = num; }
+
+  uint16_t get_vehicle_parked_threshold_variance() {
+    if (this->vehicle_parked_threshold_variance_ == nullptr) {
+      return 5;
+    } else {
+      return this->vehicle_parked_threshold_variance_->state;
+    }
   }
 #endif
 
-  #endif
 
   void register_door(GDODoor *door) { this->door_ = door; }
   void set_door_state(gdo_door_state_t state, float position) {
@@ -169,14 +171,18 @@ public:
   void register_open_duration(GDONumber *num) { open_duration_ = num; }
   void set_open_duration(uint16_t ms) {
     if (open_duration_) {
-      open_duration_->update_state(ms);
+      // Convert milliseconds to seconds for display with 0.1s precision
+      float seconds = ms / 1000.0f;
+      open_duration_->update_state(seconds);
     }
   }
 
   void register_close_duration(GDONumber *num) { close_duration_ = num; }
   void set_close_duration(uint16_t ms) {
     if (close_duration_) {
-      close_duration_->update_state(ms);
+      // Convert milliseconds to seconds for display with 0.1s precision
+      float seconds = ms / 1000.0f;
+      close_duration_->update_state(seconds);
     }
   }
 
@@ -209,7 +215,39 @@ public:
   }
 
   void register_toggle_only(GDOSwitch *sw) { this->toggle_only_switch_ = sw; }
+  void register_obst_override(GDOSwitch *sw) { this->obst_override_switch_ = sw; }
   void set_sync_state(bool synced);
+
+  // Public method to defer operations to avoid blocking in event handlers
+  void defer_operation(const std::string &name, uint32_t delay, std::function<void()> &&f) {
+    this->set_timeout(name, delay, std::move(f));
+  }
+
+  // Public method to cancel timeouts (wraps protected cancel_timeout)
+  void cancel_operation(const std::string &name) {
+    this->cancel_timeout(name);
+  }
+
+  // Public methods for sync retry management (needed by static event handler)
+  bool should_retry_sync() {
+    return sync_retry_count_ < MAX_SYNC_RETRIES;
+  }
+
+  void increment_sync_retry() {
+    sync_retry_count_++;
+  }
+
+  void reset_sync_retry() {
+    sync_retry_count_ = 0;
+  }
+
+  uint8_t get_sync_retry_count() const {
+    return sync_retry_count_;
+  }
+
+  uint8_t get_max_sync_retries() const {
+    return MAX_SYNC_RETRIES;
+  }
 
 protected:
   gdo_status_t status_{};
@@ -235,15 +273,22 @@ protected:
 #ifdef TOF_SENSOR
   GDONumber *target_tof_distance_{nullptr};
   GDONumber *vehicle_parked_threshold_{nullptr};
+  GDONumber *vehicle_parked_threshold_variance_{nullptr};
   std::function<void(uint16_t)> f_tof_distance{nullptr};
   std::function<void(bool)> f_vehicle_parked{nullptr};
   std::function<void(bool)> f_vehicle_leaving{nullptr};
-  std::function<void(bool)> f_vehicle_arriving{nullptr};  
+  std::function<void(bool)> f_vehicle_arriving{nullptr};
 #endif
   GDOSelect *protocol_select_{nullptr};
   GDOSwitch *learn_switch_{nullptr};
   GDOSwitch *toggle_only_switch_{nullptr};
+  GDOSwitch *obst_override_switch_{nullptr};
   bool start_gdo_{false};
+  bool gdo_started_{false};
+
+  // Sync retry tracking
+  uint8_t sync_retry_count_{0};
+  static const uint8_t MAX_SYNC_RETRIES = 5;
 
 }; // GDOComponent
 } // namespace secplus_gdo

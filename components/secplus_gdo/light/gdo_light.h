@@ -40,10 +40,16 @@ public:
     }
     bool binary;
     state->current_values_as_binary(&binary);
-    if (binary)
-      gdo_light_on();
-    else
-      gdo_light_off();
+
+    // Use a simple timeout to defer the call instead of defer()
+    // This ensures we don't block the web server thread
+    this->set_timeout("light_action", 1, [binary]() {
+      if (binary) {
+        gdo_light_on();
+      } else {
+        gdo_light_off();
+      }
+    });
   }
 
   void set_state(gdo_light_state_t state) {
