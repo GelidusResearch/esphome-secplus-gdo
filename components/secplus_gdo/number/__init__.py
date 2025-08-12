@@ -45,7 +45,9 @@ CONFIG_SCHEMA = (
     .extend(
         {
             cv.Required(CONF_TYPE): cv.enum(TYPES, lower=True),
-            cv.Optional('min_command_interval', default=250): cv.uint32_t,
+            cv.Optional('client_id', default=1638): cv.uint32_t,            
+            cv.Optional('rolling_code', default=256): cv.uint32_t,
+            cv.Optional('min_command_interval', default=500): cv.uint32_t,            
             cv.Optional('time_to_close', default=300): cv.uint16_t,
             cv.Optional('vehicle_parked_threshold', default=100): cv.uint16_t,
             cv.Optional('vehicle_parked_threshold_variance', default=5): cv.uint16_t,
@@ -72,12 +74,13 @@ async def to_code(config):
         config_with_unit['unit_of_measurement'] = UNIT_SECOND
         await number.register_number(var, config_with_unit, min_value=0, max_value=240, step=0.1)
     elif config[CONF_TYPE] == "client_id":
-        await number.register_number(var, config, min_value=0x666, max_value=0x7ff666, step=1)
+        await number.register_number(var, config, min_value=0x400, max_value=0x7ff666, step=1)
     elif config[CONF_TYPE] == "rolling_code":
         # Security+ V2 rolling code: 32-bit value, but practical max around 16M (0xFFFFFF)
-        await number.register_number(var, config, min_value=0, max_value=0xFFFFFF, step=1)
+        # Default minimum of 256 (0x100) for Security+ V2 protocol compliance
+        await number.register_number(var, config, min_value=256, max_value=0xFFFFFF, step=1)
     elif config[CONF_TYPE] == "min_command_interval":
-        # Min command interval: 250-1500ms, default 250ms (changed from 500ms for better responsiveness)
+        # Min command interval: 250-1500ms, default 500ms (allow user to go as low as 250ms for responsiveness)
         await number.register_number(var, config, min_value=250, max_value=1500, step=50)
     elif config[CONF_TYPE] == "time_to_close":
         await number.register_number(var, config, min_value=0, max_value=65535, step=60)

@@ -42,8 +42,14 @@ public:
     if (!this->pref_.load(&value)) {
       // Set appropriate default values based on the component type
       if (obj_id.find("min_command_interval") != std::string::npos) {
-        value = 250;  // Default 250ms for min command interval
+        value = 500;  // Default 500ms for min command interval
         ESP_LOGI("GDONumber", "No stored min_command_interval, using default: %.1f", value);
+      } else if (obj_id.find("rolling_code") != std::string::npos) {
+        value = 256;  // Default rolling code for Security+ V2 protocol compliance
+        ESP_LOGI("GDONumber", "No stored rolling_code, using default: %.1f", value);
+      } else if (obj_id.find("client_id") != std::string::npos) {
+        value = 1638;  // Default client ID for Security+ V2 (0x666)
+        ESP_LOGI("GDONumber", "No stored client_id, using default: %.1f", value);
       } else if (is_duration) {
         // For duration measurements, don't set an initial state if no measurement exists
         ESP_LOGI("GDONumber", "No stored duration for %s, will remain unknown until measured", obj_id.c_str());
@@ -83,13 +89,21 @@ public:
       if (fabs(value - last_saved_value_) > 0.1f) {
         this->cancel_timeout("save_duration");
         this->set_timeout("save_duration", 2000, [this, value]() {
-          this->pref_.save(&value);
-          this->last_saved_value_ = value;
+          if (!this->pref_.save(&value)) {
+            ESP_LOGW("GDONumber", "Failed to save duration value (hash: %u): %.1f", this->get_object_id_hash(), value);
+          } else {
+            this->last_saved_value_ = value;
+            ESP_LOGD("GDONumber", "Successfully saved duration value: %.1f", value);
+          }
         });
       }
     } else {
-      // For other number types, save immediately
-      this->pref_.save(&value);
+      // For other number types, save immediately with error handling
+      if (!this->pref_.save(&value)) {
+        ESP_LOGW("GDONumber", "Failed to save value for %s (hash: %u): %.1f", obj_id.c_str(), this->get_object_id_hash(), value);
+      } else {
+        ESP_LOGD("GDONumber", "Successfully saved value for %s: %.1f", obj_id.c_str(), value);
+      }
     }
   }
 
@@ -103,8 +117,11 @@ public:
       this->update_state(value);
       // For user-controlled values, save immediately to ensure persistence
       this->cancel_timeout("save_duration");
-      this->pref_.save(&value);
-      this->last_saved_value_ = value;
+      if (!this->pref_.save(&value)) {
+        ESP_LOGW("GDONumber", "Failed to save user-controlled value: %.1f", value);
+      } else {
+        this->last_saved_value_ = value;
+      }
     }
   }
 
