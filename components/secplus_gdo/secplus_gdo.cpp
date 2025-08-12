@@ -386,12 +386,11 @@ namespace esphome
           rolling_code_to_use = (uint32_t)this->rolling_code_->state;
           ESP_LOGI(TAG, "Loading stored rolling code: %" PRIu32, rolling_code_to_use);
         } else {
-          // No stored state, use the component's initial value
           rolling_code_to_use = (uint32_t)this->rolling_code_->traits.get_min_value();
           ESP_LOGI(TAG, "No stored rolling code, using initial value: %" PRIu32, rolling_code_to_use);
         }
 
-        // If rolling code is still 0, use a reasonable default
+        // If rolling code is zero, set to default value
         if (rolling_code_to_use == 0) {
           rolling_code_to_use = 1000;  // Default rolling code
           ESP_LOGW(TAG, "Rolling code was 0, using default: %" PRIu32, rolling_code_to_use);
