@@ -31,13 +31,6 @@ void GDODoor::set_state(gdo_door_state_t state, float position) {
   ESP_LOGI(TAG, "Door state: %s, position: %.0f%%",
            gdo_door_state_to_string(state), position * 100.0f);
 
-  if (this->state_ == state && this->position == position) {
-    return;
-  }
-
-  ESP_LOGI(TAG, "Door state: %s, position: %.0f%%",
-           gdo_door_state_to_string(state), position * 100.0f);
-
   switch (state) {
   case GDO_DOOR_STATE_OPEN:
     this->position = COVER_OPEN;
