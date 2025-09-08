@@ -173,6 +173,7 @@ public:
     if (open_duration_) {
       // Convert milliseconds to seconds for display with 0.1s precision
       float seconds = ms / 1000.0f;
+      ESP_LOGI("secplus_gdo", "Updating open duration: %d ms (%.1f seconds)", ms, seconds);
       open_duration_->update_state(seconds);
     }
   }
@@ -182,7 +183,29 @@ public:
     if (close_duration_) {
       // Convert milliseconds to seconds for display with 0.1s precision
       float seconds = ms / 1000.0f;
+      ESP_LOGI("secplus_gdo", "Updating close duration: %d ms (%.1f seconds)", ms, seconds);
       close_duration_->update_state(seconds);
+    }
+  }
+
+  // Manual control functions for duration override (for testing/calibration)
+  void manual_set_open_duration(float seconds) {
+    ESP_LOGI("secplus_gdo", "Manual control: setting open duration to %.1f seconds", seconds);
+    if (open_duration_) {
+      open_duration_->update_state(seconds);
+      ESP_LOGI("secplus_gdo", "Successfully called update_state for open duration");
+    } else {
+      ESP_LOGW("secplus_gdo", "open_duration_ pointer is null!");
+    }
+  }
+
+  void manual_set_close_duration(float seconds) {
+    ESP_LOGI("secplus_gdo", "Manual control: setting close duration to %.1f seconds", seconds);
+    if (close_duration_) {
+      close_duration_->update_state(seconds);
+      ESP_LOGI("secplus_gdo", "Successfully called update_state for close duration");
+    } else {
+      ESP_LOGW("secplus_gdo", "close_duration_ pointer is null!");
     }
   }
 
@@ -249,6 +272,29 @@ public:
     return MAX_SYNC_RETRIES;
   }
 
+  // Force duration measurement on next door operation
+  void force_next_duration_measurement() {
+    force_duration_measurement_ = true;
+    ESP_LOGI("secplus_gdo", "Duration measurement will be forced on next door operation");
+
+    // Clear the stored duration values to trigger fresh measurements
+    if (open_duration_) {
+      open_duration_->state = NAN;
+      ESP_LOGI("secplus_gdo", "Cleared open duration value");
+    }
+    if (close_duration_) {
+      close_duration_->state = NAN;
+      ESP_LOGI("secplus_gdo", "Cleared close duration value");
+    }
+  }
+
+  // Public methods to check and clear the force flag for event handlers
+  bool should_force_duration_measurement() const { return force_duration_measurement_; }
+  void clear_force_duration_flag() {
+    force_duration_measurement_ = false;
+    ESP_LOGI("secplus_gdo", "Force duration measurement flag cleared");
+  }
+
 protected:
   gdo_status_t status_{};
   std::function<void(gdo_lock_state_t)> f_lock{nullptr};
@@ -286,6 +332,9 @@ protected:
   bool start_gdo_{false};
   bool gdo_started_{false};
 
+  // Flag to force duration measurement on next door operation
+  bool force_duration_measurement_{false};
+
   // Sync retry tracking
   uint8_t sync_retry_count_{0};
   static const uint8_t MAX_SYNC_RETRIES = 5;
@@ -293,3 +342,13 @@ protected:
 }; // GDOComponent
 } // namespace secplus_gdo
 } // namespace esphome
+
+// External declaration for global instance pointer
+extern esphome::secplus_gdo::GDOComponent* gdo_instance;
+
+// Global wrapper functions for manual duration control
+void manual_set_open_duration(float seconds);
+void manual_set_close_duration(float seconds);
+
+// Global function to force duration measurement on next door operation
+void force_next_duration_measurement();

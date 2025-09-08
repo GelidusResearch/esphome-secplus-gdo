@@ -182,7 +182,7 @@ namespace esphome
         break;
       case GDO_CB_EVENT_DOOR_POSITION:
         door_position_events++;  // Count door position events
-        ESP_LOGV(TAG, "Door state: %d, position: %d", status->door, status->door_position);  // Changed to LOGV to reduce spam
+        ESP_LOGI(TAG, "Door state: %d, position: %d", status->door, status->door_position);
         // Process door position directly to avoid defer operation crashes
         {
           float position = (float)(10000 - status->door_position) / 10000.0f;
@@ -280,15 +280,25 @@ namespace esphome
         break;
       case GDO_CB_EVENT_OPEN_DURATION_MEASUREMENT:
         duration_events++;  // Count duration events
-        ESP_LOGV(TAG, "Open duration: %d", status->open_ms);  // Changed to LOGV to reduce spam even more
+        ESP_LOGI(TAG, "Open duration measurement: %d ms", status->open_ms);
         // Process duration directly to avoid defer operation crashes
         gdo->set_open_duration(status->open_ms);
+        // Clear the force flag since we got a measurement
+        if (gdo->should_force_duration_measurement()) {
+          ESP_LOGI(TAG, "Forced open duration measurement complete");
+          gdo->clear_force_duration_flag();
+        }
         break;
       case GDO_CB_EVENT_CLOSE_DURATION_MEASUREMENT:
         duration_events++;  // Count duration events
-        ESP_LOGV(TAG, "Close duration: %d", status->close_ms);  // Changed to LOGV to reduce spam even more
+        ESP_LOGI(TAG, "Close duration measurement: %d ms", status->close_ms);
         // Process duration directly to avoid defer operation crashes
         gdo->set_close_duration(status->close_ms);
+        // Clear the force flag since we got a measurement
+        if (gdo->should_force_duration_measurement()) {
+          ESP_LOGI(TAG, "Forced close duration measurement complete");
+          gdo->clear_force_duration_flag();
+        }
         break;
 #ifdef TOF_SENSOR
       case GDO_CB_EVENT_TOF_TIMER:
@@ -314,6 +324,9 @@ namespace esphome
 
     void GDOComponent::setup()
     {
+      // Set the global instance pointer for manual control functions
+      gdo_instance = this;
+
 #ifdef GDO_TOGGLE_ONLY
       // Set the toggle only state and control here because we cannot guarantee the
       // cover instance was created before the switch
@@ -459,6 +472,28 @@ namespace esphome
 
   } // namespace secplus_gdo
 } // namespace esphome
+
+// Global instance pointer for the GDO component
+esphome::secplus_gdo::GDOComponent* gdo_instance = nullptr;
+
+// Global wrapper functions for manual duration control
+void manual_set_open_duration(float seconds) {
+  if (gdo_instance) {
+    gdo_instance->manual_set_open_duration(seconds);
+  }
+}
+
+void manual_set_close_duration(float seconds) {
+  if (gdo_instance) {
+    gdo_instance->manual_set_close_duration(seconds);
+  }
+}
+
+void force_next_duration_measurement() {
+  if (gdo_instance) {
+    gdo_instance->force_next_duration_measurement();
+  }
+}
 
 // Need to wrap the panic handler to disable the GDO TX pin and pull the output
 // high to prevent spuriously triggering the GDO to open when the ESP32 panics.

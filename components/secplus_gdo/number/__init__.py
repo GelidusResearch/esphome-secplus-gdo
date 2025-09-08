@@ -45,9 +45,9 @@ CONFIG_SCHEMA = (
     .extend(
         {
             cv.Required(CONF_TYPE): cv.enum(TYPES, lower=True),
-            cv.Optional('client_id', default=1638): cv.uint32_t,            
+            cv.Optional('client_id', default=1638): cv.uint32_t,
             cv.Optional('rolling_code', default=256): cv.uint32_t,
-            cv.Optional('min_command_interval', default=500): cv.uint32_t,            
+            cv.Optional('min_command_interval', default=500): cv.uint32_t,
             cv.Optional('time_to_close', default=300): cv.uint16_t,
             cv.Optional('vehicle_parked_threshold', default=100): cv.uint16_t,
             cv.Optional('vehicle_parked_threshold_variance', default=5): cv.uint16_t,
@@ -97,8 +97,14 @@ async def to_code(config):
     text = fcall + "(" + str(var) + ")"
     cg.add((cg.RawExpression(text)))
 
-    # Duration measurements are read-only (reported by garage door opener)
-    # Don't set control functions for duration types
-    if config[CONF_TYPE] not in ["open_duration", "close_duration"]:
+    # Duration measurements can be manually overridden for testing/calibration
+    # Don't set control functions for other read-only types
+    if config[CONF_TYPE] == "open_duration":
+        text = "manual_set_open_duration"
+        cg.add(var.set_control_function(cg.RawExpression(text)))
+    elif config[CONF_TYPE] == "close_duration":
+        text = "manual_set_close_duration"
+        cg.add(var.set_control_function(cg.RawExpression(text)))
+    elif config[CONF_TYPE] not in ["open_duration", "close_duration"]:
         text = "gdo_set_" + str(config[CONF_TYPE])
         cg.add(var.set_control_function(cg.RawExpression(text)))

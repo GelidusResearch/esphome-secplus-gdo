@@ -33,9 +33,9 @@ public:
   void setup() override {
     float value;
     std::string obj_id = this->get_object_id();
-    bool is_duration = (obj_id.find("open_duration") != std::string::npos || 
+    bool is_duration = (obj_id.find("open_duration") != std::string::npos ||
                        obj_id.find("close_duration") != std::string::npos);
-    
+
     // Load value from preferences
     this->pref_ =
         global_preferences->make_preference<float>(this->get_object_id_hash());
@@ -44,73 +44,102 @@ public:
       if (obj_id.find("min_command_interval") != std::string::npos) {
         value = 500;  // Default 500ms for min command interval
         ESP_LOGI("GDONumber", "No stored min_command_interval, using default: %.1f", value);
+        this->last_saved_value_ = value;
+        this->state = value;
+        this->publish_state(value);
       } else if (obj_id.find("rolling_code") != std::string::npos) {
         value = 256;  // Default rolling code for Security+ V2 protocol compliance
         ESP_LOGI("GDONumber", "No stored rolling_code, using default: %.1f", value);
+        this->last_saved_value_ = value;
+        this->state = value;
+        this->publish_state(value);
       } else if (obj_id.find("client_id") != std::string::npos) {
         value = 1638;  // Default client ID for Security+ V2 (0x666)
         ESP_LOGI("GDONumber", "No stored client_id, using default: %.1f", value);
+        this->last_saved_value_ = value;
+        this->state = value;
+        this->publish_state(value);
       } else if (is_duration) {
         // For duration measurements, don't set an initial state if no measurement exists
         ESP_LOGI("GDONumber", "No stored duration for %s, will remain unknown until measured", obj_id.c_str());
         this->last_saved_value_ = 0.0f;  // Initialize with 0 for tracking
-        return;  // Don't set state or publish - let it remain unknown
+        // Initialize state as NaN to indicate unknown, but don't publish until we have a real value
+        this->state = NAN;
+        return;
       } else {
         value = this->traits.get_min_value();
         ESP_LOGI("GDONumber", "No stored value for %s, using min_value: %.1f", obj_id.c_str(), value);
+        this->last_saved_value_ = value;
+        this->state = value;
+        this->publish_state(value);
       }
     } else {
       ESP_LOGI("GDONumber", "Loaded stored value for %s: %.1f", obj_id.c_str(), value);
+      this->last_saved_value_ = value;
+      this->state = value;
+      this->publish_state(value);
     }
-
-    this->last_saved_value_ = value;  // Initialize last saved value
-    
-    // Initialize state properly for all number types
-    // For duration measurements, only set state if we have a valid stored value
-    this->state = value;
-    this->publish_state(value);
   }
 
   void update_state(float value) {
-    if (value == this->state) {
+    // For duration measurements, always allow updates if current state is NaN (unknown)
+    bool should_update = false;
+    std::string obj_id = this->get_object_id();
+    bool is_duration = (obj_id.find("open_duration") != std::string::npos ||
+                       obj_id.find("close_duration") != std::string::npos);
+
+    if (is_duration && std::isnan(this->state)) {
+      // Always update if current state is unknown (NaN)
+      should_update = true;
+      ESP_LOGI("GDONumber", "Duration %s updating from unknown to %.1f", obj_id.c_str(), value);
+    } else if (value != this->state) {
+      // Normal case - value is different
+      should_update = true;
+      ESP_LOGI("GDONumber", "Duration %s updating from %.1f to %.1f", obj_id.c_str(), this->state, value);
+    } else {
+      // Value is the same, no need to update
       return;
     }
 
-    this->state = value;
-    this->publish_state(value);
-    
-    // Only save to persistent storage if the value has changed significantly
-    // This reduces flash writes and improves responsiveness
-    std::string obj_id = this->get_object_id();
-    if (obj_id.find("open_duration") != std::string::npos || 
-        obj_id.find("close_duration") != std::string::npos) {
-      // For duration measurements, only save if changed by more than 0.1s
-      // and debounce saves to reduce flash writes during door movement
-      if (fabs(value - last_saved_value_) > 0.1f) {
-        this->cancel_timeout("save_duration");
-        this->set_timeout("save_duration", 2000, [this, value]() {
-          if (!this->pref_.save(&value)) {
-            ESP_LOGW("GDONumber", "Failed to save duration value (hash: %u): %.1f", this->get_object_id_hash(), value);
-          } else {
-            this->last_saved_value_ = value;
-            ESP_LOGD("GDONumber", "Successfully saved duration value: %.1f", value);
-          }
-        });
-      }
-    } else {
-      // For other number types, save immediately with error handling
-      if (!this->pref_.save(&value)) {
-        ESP_LOGW("GDONumber", "Failed to save value for %s (hash: %u): %.1f", obj_id.c_str(), this->get_object_id_hash(), value);
+    if (should_update) {
+      this->state = value;
+      this->publish_state(value);
+      ESP_LOGI("GDONumber", "Published %s state: %.1f to Home Assistant", obj_id.c_str(), value);
+
+      // Only save to persistent storage if the value has changed significantly
+      // This reduces flash writes and improves responsiveness
+      if (is_duration) {
+        // For duration measurements, only save if changed by more than 0.1s
+        // and debounce saves to reduce flash writes during door movement
+        if (fabs(value - last_saved_value_) > 0.1f) {
+          this->cancel_timeout("save_duration");
+          this->set_timeout("save_duration", 2000, [this, value]() {
+            if (!this->pref_.save(&value)) {
+              ESP_LOGW("GDONumber", "Failed to save duration value (hash: %u): %.1f", this->get_object_id_hash(), value);
+            } else {
+              this->last_saved_value_ = value;
+              ESP_LOGD("GDONumber", "Successfully saved duration value: %.1f", value);
+            }
+          });
+        }
       } else {
-        ESP_LOGD("GDONumber", "Successfully saved value for %s: %.1f", obj_id.c_str(), value);
+        // For other number types, save immediately with error handling
+        if (!this->pref_.save(&value)) {
+          ESP_LOGW("GDONumber", "Failed to save value for %s (hash: %u): %.1f", obj_id.c_str(), this->get_object_id_hash(), value);
+        } else {
+          ESP_LOGD("GDONumber", "Successfully saved value for %s: %.1f", obj_id.c_str(), value);
+        }
       }
     }
   }
 
   void control(float value) override {
-    if (value == this->state) {
+    // Allow control even if current state is NaN (unknown)
+    if (!std::isnan(this->state) && value == this->state) {
       return;
     }
+
+    ESP_LOGI("GDONumber", "Manual control: setting %s to %.1f", this->get_object_id().c_str(), value);
 
     if (this->f_control) {
       this->f_control(value);
@@ -121,7 +150,10 @@ public:
         ESP_LOGW("GDONumber", "Failed to save user-controlled value: %.1f", value);
       } else {
         this->last_saved_value_ = value;
+        ESP_LOGI("GDONumber", "Successfully saved user-controlled value: %.1f", value);
       }
+    } else {
+      ESP_LOGW("GDONumber", "No control function set for %s", this->get_object_id().c_str());
     }
   }
 
