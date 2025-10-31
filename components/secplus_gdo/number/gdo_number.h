@@ -59,10 +59,10 @@ public:
     if (!loaded_from_nvs) {
       // Set appropriate default values based on the component type
       if (obj_id.find("min_command_interval") != std::string::npos) {
-        value = 500;  // Default 500ms for min command interval
+        value = 250;  // Default 250ms for min command interval
         ESP_LOGI("GDONumber", "No stored min_command_interval, using default: %.1f", value);
       } else if (obj_id.find("rolling_code") != std::string::npos) {
-        value = 256;  // Default rolling code for Security+ V2 protocol compliance
+        value = 0;  // Default rolling code for Security+ V2 protocol compliance
         ESP_LOGW("GDONumber", "NVS EMPTY: No stored rolling_code, using default: %.0f", value);
       } else if (obj_id.find("client_id") != std::string::npos) {
         value = 1638;  // Default client ID for Security+ V2 (0x666)
@@ -84,7 +84,7 @@ public:
         float original_value = value;
         value = normalize_client_id(value);
         if (value != original_value) {
-          ESP_LOGW("GDONumber", "NVS LOADED client_id %.0f (0x%X) normalized to %.0f (0x%X)", 
+          ESP_LOGW("GDONumber", "NVS LOADED client_id %.0f (0x%X) normalized to %.0f (0x%X)",
                    original_value, (uint32_t)original_value, value, (uint32_t)value);
         } else {
           ESP_LOGI("GDONumber", "NVS LOADED: client_id = %.0f (0x%X)", value, (uint32_t)value);
@@ -161,17 +161,17 @@ public:
 
   void control(float value) override {
     std::string obj_id = this->get_object_id();
-    
+
     // Normalize client_id if being set by user
     if (obj_id.find("client_id") != std::string::npos) {
       float original_value = value;
       value = normalize_client_id(value);
       if (value != original_value) {
-        ESP_LOGW("GDONumber", "User input client_id %.0f (0x%X) normalized to %.0f (0x%X)", 
+        ESP_LOGW("GDONumber", "User input client_id %.0f (0x%X) normalized to %.0f (0x%X)",
                  original_value, (uint32_t)original_value, value, (uint32_t)value);
       }
     }
-    
+
     if (value == this->state) {
       return;
     }
