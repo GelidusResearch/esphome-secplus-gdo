@@ -140,7 +140,7 @@ public:
             ESP_LOGW("GDONumber", "Failed to save duration value (hash: %u): %.1f", this->get_object_id_hash(), value);
           } else {
             this->last_saved_value_ = value;
-            ESP_LOGD("GDONumber", "Successfully saved duration value: %.1f", value);
+            ESP_LOGV("GDONumber", "Successfully saved duration value: %.1f", value);
           }
         });
       }
@@ -151,9 +151,9 @@ public:
       } else {
         // Use INFO level for critical credentials (client_id, rolling_code) for visibility
         if (obj_id.find("client_id") != std::string::npos || obj_id.find("rolling_code") != std::string::npos) {
-          ESP_LOGI("GDONumber", "NVS SAVED: %s = %.0f", obj_id.c_str(), value);
+          ESP_LOGV("GDONumber", "NVS SAVED: %s = %.0f", obj_id.c_str(), value);
         } else {
-          ESP_LOGD("GDONumber", "Successfully saved value for %s: %.1f", obj_id.c_str(), value);
+          ESP_LOGV("GDONumber", "Successfully saved value for %s: %.1f", obj_id.c_str(), value);
         }
       }
     }

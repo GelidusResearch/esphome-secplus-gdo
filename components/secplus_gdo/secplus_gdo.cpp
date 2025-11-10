@@ -61,6 +61,17 @@ namespace esphome
         return;
       }
 
+      if (status->protocol == GDO_PROTOCOL_SEC_PLUS_V2) {
+        static uint32_t last_rc = 0;
+        uint32_t current_rc = gdo->get_rolling_code();
+
+        if (status->rolling_code != last_rc && status->rolling_code > current_rc) {
+          ESP_LOGV(TAG, "Rolling code: %" PRIu32 " → %" PRIu32, current_rc, status->rolling_code);
+          gdo->set_rolling_code(status->rolling_code);
+          last_rc = status->rolling_code;
+        }
+      }
+
       // Wrap everything in a try-catch to prevent crashes
       // Note: Exception handling disabled in ESP-IDF, using safety checks instead
 
@@ -510,11 +521,8 @@ namespace esphome
 
       if (this->start_gdo_)
       {
-        ESP_LOGI(TAG, "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-        ESP_LOGI(TAG, "Starting GDO communication immediately (WiFi already connected)");
-        ESP_LOGI(TAG, "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
         gdo_start(gdo_event_handler, this);
-        ESP_LOGI(TAG, "secplus GDO started!");
+        ESP_LOGI(TAG, "Secplus GDO started!");
 
         // Add a timeout to stop transmission if no sync after 30 seconds
         this->set_timeout("sync_timeout", 30000, [this]() {
@@ -525,17 +533,12 @@ namespace esphome
       }
       else
       {
-        ESP_LOGI(TAG, "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-        ESP_LOGI(TAG, "Waiting for WiFi connection before starting GDO...");
-        ESP_LOGI(TAG, "Will check every 500ms until start_gdo_ flag is set");
-        ESP_LOGI(TAG, "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
         // check every 500ms for readiness before starting GDO
         this->set_interval("gdo_start", 500, [this]()
                            {
       if (this->start_gdo_) {
-        ESP_LOGI(TAG, "WiFi connected! Starting GDO communication now...");
         gdo_start(gdo_event_handler, this);
-        ESP_LOGI(TAG, "secplus GDO started!");
+        ESP_LOGI(TAG, "Secplus GDO started!");
         this->cancel_interval("gdo_start");
       } });
       }

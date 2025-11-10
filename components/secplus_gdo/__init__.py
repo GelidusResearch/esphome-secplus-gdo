@@ -100,5 +100,5 @@ async def to_code(config):
     cg.add_library(
         name="GDOLIB",
         repository="https://github.com/gelidusresearch/gdolib.git",
-        version="1.2.6",
+        version="1.2.7",
     )
