@@ -64,11 +64,8 @@ namespace esphome
       // Wrap everything in a try-catch to prevent crashes
       // Note: Exception handling disabled in ESP-IDF, using safety checks instead
 
-      // Print diagnostic info every 10 seconds
       uint32_t now = millis();
       if (now - last_diagnostic_time > 10000) {
-        ESP_LOGI(TAG, "Event frequency: %d door_position, %d duration events in last 10s",
-                 door_position_events, duration_events);
         door_position_events = 0;
         duration_events = 0;
         last_diagnostic_time = now;
@@ -122,12 +119,24 @@ namespace esphome
         {
           ESP_LOGI(TAG, "Client ID: %" PRIu32 ", Rolling code: %" PRIu32,
                    status->client_id, status->rolling_code);
-          if (status->synced)
-          {
-            // Save the last successful ClientID rolling code value to NVS for use
-            // on reboot
+
+          // Check current stored rolling code to prevent backward movement
+          uint32_t current_rolling_code = gdo->get_rolling_code();
+
+          if (status->synced) {
+            // Valid active sync - always update credentials
+            ESP_LOGI(TAG, "VALID SYNC - Saving Rolling Code: %" PRIu32 " → now: %" PRIu32 ")",
+                     current_rolling_code, status->rolling_code);
             gdo->set_client_id(status->client_id);
             gdo->set_rolling_code(status->rolling_code);
+          } else {
+            // Sync failed - only update if rolling code moved forward
+            if (status->rolling_code > current_rolling_code) {
+              ESP_LOGW(TAG, "SYNC FAILED (%" PRIu32 " → %" PRIu32 ") - Saving Current Rolling Code",
+                       current_rolling_code, status->rolling_code);
+              gdo->set_client_id(status->client_id);
+              gdo->set_rolling_code(status->rolling_code);
+            }
           }
         }
 
@@ -154,19 +163,43 @@ namespace esphome
             return;  // Exit early to prevent any further processing
           }
 
-          // Completely disable sync retries to prevent crashes - force manual setup
-          ESP_LOGW(TAG, "Sync failed. Please set Client ID and Rolling Code manually in Home Assistant.");
-          ESP_LOGW(TAG, "Automatic sync retry is disabled to prevent system crashes.");
-          ESP_LOGW(TAG, "TX pin may remain active until manual sync is successful.");
-          gdo->reset_sync_retry();
-          gdo->set_sync_state(status->synced);
-          return;  // Exit early
+          // Check if we should attempt a one-time restart after sync failure
+          if (!gdo->has_restarted_for_sync()) {
+            ESP_LOGW(TAG, "Sync failed - will restart in 5 seconds to recover...");
+            gdo->set_has_restarted_for_sync(true);
+            gdo->save_restart_flag();
+
+            // Schedule restart after 5 seconds to allow logs to be sent
+            gdo->defer_operation("restart_after_sync_failure", 5000, []() {
+              ESP_LOGW(TAG, "Restarting now after sync failure...");
+              App.safe_reboot();
+            });
+
+            gdo->reset_sync_retry();
+            gdo->set_sync_state(status->synced);
+            return;  // Exit early
+          } else {
+            // Already attempted restart once, don't try again to prevent boot loop
+            ESP_LOGW(TAG, "Sync failed but restart already attempted - manual intervention required");
+            ESP_LOGW(TAG, "Please set Client ID and Rolling Code manually in Home Assistant.");
+            ESP_LOGW(TAG, "TX pin may remain active until manual sync is successful.");
+            gdo->reset_sync_retry();
+            gdo->set_sync_state(status->synced);
+            return;  // Exit early
+          }
         }
         else
         {
           // Reset retry counter on successful sync
           gdo->reset_sync_retry();
           gdo->set_protocol_state(status->protocol);
+
+          // Clear restart-after-sync-failure flag on successful sync
+          if (gdo->has_restarted_for_sync()) {
+            gdo->set_has_restarted_for_sync(false);
+            gdo->save_restart_flag();
+            ESP_LOGI(TAG, "Sync successful - restart flag cleared");
+          }
 
           // Note: Cannot cancel timeout from static event handler due to access restrictions
           // The timeout will naturally expire, which is fine since sync is now successful
@@ -352,23 +385,72 @@ namespace esphome
           .rf_rx_pin = (gpio_num_t)-1,
 #endif
       };
+
+      // Log boot reason to help diagnose cold boot vs warm restart differences
+      esp_reset_reason_t reset_reason = esp_reset_reason();
+      const char* reset_reason_str = "UNKNOWN";
+      switch(reset_reason) {
+        case ESP_RST_POWERON: reset_reason_str = "POWER_ON (cold boot)"; break;
+        case ESP_RST_SW: reset_reason_str = "SOFTWARE"; break;
+        case ESP_RST_PANIC: reset_reason_str = "PANIC"; break;
+        case ESP_RST_INT_WDT: reset_reason_str = "INTERRUPT_WATCHDOG"; break;
+        case ESP_RST_TASK_WDT: reset_reason_str = "TASK_WATCHDOG"; break;
+        case ESP_RST_WDT: reset_reason_str = "OTHER_WATCHDOG"; break;
+        case ESP_RST_DEEPSLEEP: reset_reason_str = "DEEP_SLEEP"; break;
+        case ESP_RST_BROWNOUT: reset_reason_str = "BROWNOUT"; break;
+        case ESP_RST_SDIO: reset_reason_str = "SDIO"; break;
+        default: break;
+      }
+      ESP_LOGI(TAG, "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      ESP_LOGI(TAG, "Reset reason: %s", reset_reason_str);
+      ESP_LOGI(TAG, "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+
+      // Initialize restart-after-sync-failure tracking
+      // This allows one restart attempt after sync failure, preventing boot loops
+      this->restart_attempt_pref_ = global_preferences->make_preference<bool>(fnv1_hash("restart_sync"));
+      if (reset_reason == ESP_RST_POWERON) {
+        // Cold boot (power cycle) - clear the restart flag for fresh start
+        this->has_restarted_for_sync_ = false;
+        this->restart_attempt_pref_.save(&this->has_restarted_for_sync_);
+        ESP_LOGI(TAG, "Cold boot detected - restart flag cleared");
+      } else {
+        // Warm restart - load previous restart flag state
+        bool loaded = this->restart_attempt_pref_.load(&this->has_restarted_for_sync_);
+        if (loaded) {
+          ESP_LOGI(TAG, "Loaded restart flag from NVS: %s", this->has_restarted_for_sync_ ? "true (restart already attempted)" : "false");
+        } else {
+          // No previous state, default to false
+          this->has_restarted_for_sync_ = false;
+          ESP_LOGI(TAG, "No restart flag in NVS, defaulting to false");
+        }
+      }
+
 #ifdef TOF_SENSOR
       gdo_set_tof_timer(100000, true);
 #endif
+      ESP_LOGI(TAG, "Calling gdo_init() with UART%d TX:%d RX:%d",
+               gdo_conf.uart_num, gdo_conf.uart_tx_pin, gdo_conf.uart_rx_pin);
       gdo_init(&gdo_conf);
+      ESP_LOGI(TAG, "gdo_init() completed successfully");
       gdo_get_status(&this->status_);
+
+      // NOTE: Protocol is NOT loaded/set from NVS on startup
+      // GDOLIB will auto-detect the protocol during sync
+      // The protocol select is only for manual override by the user
+      // The detected protocol will be saved to NVS when sync succeeds
 
       // Initialize client ID and rolling code from stored values (if available)
       // This is essential for first-run and after reboot functionality
+      ESP_LOGI(TAG, "Loading credentials from NVS...");
       if (this->client_id_) {
         uint32_t client_id_to_use = 0;
         if (this->client_id_->has_state()) {
           client_id_to_use = (uint32_t)this->client_id_->state;
-          ESP_LOGI(TAG, "Loading stored client ID: %" PRIu32, client_id_to_use);
+          ESP_LOGI(TAG, "✓ Client ID has state: %" PRIu32, client_id_to_use);
         } else {
           // No stored state, use the component's initial value
           client_id_to_use = (uint32_t)this->client_id_->traits.get_min_value();
-          ESP_LOGI(TAG, "No stored client ID, using initial value: %" PRIu32, client_id_to_use);
+          ESP_LOGI(TAG, "⚠ No stored client ID state, using initial value: %" PRIu32, client_id_to_use);
         }
 
         // If client ID is still 0, it's invalid - use a reasonable default
@@ -377,17 +459,20 @@ namespace esphome
           ESP_LOGW(TAG, "Client ID was 0, using default: %" PRIu32, client_id_to_use);
         }
 
+        ESP_LOGI(TAG, "Calling gdo_set_client_id(%" PRIu32 ")", client_id_to_use);
         gdo_set_client_id(client_id_to_use);
+      } else {
+        ESP_LOGW(TAG, "⚠ client_id_ entity is null!");
       }
 
       if (this->rolling_code_) {
         uint32_t rolling_code_to_use = 0;
         if (this->rolling_code_->has_state()) {
           rolling_code_to_use = (uint32_t)this->rolling_code_->state;
-          ESP_LOGI(TAG, "Loading stored rolling code: %" PRIu32, rolling_code_to_use);
+          ESP_LOGI(TAG, "✓ Rolling code has state: %" PRIu32, rolling_code_to_use);
         } else {
           rolling_code_to_use = (uint32_t)this->rolling_code_->traits.get_min_value();
-          ESP_LOGI(TAG, "No stored rolling code, using initial value: %" PRIu32, rolling_code_to_use);
+          ESP_LOGI(TAG, "⚠ No stored rolling code state, using initial value: %" PRIu32, rolling_code_to_use);
         }
 
         // If rolling code is zero, set to default value
@@ -396,7 +481,26 @@ namespace esphome
           ESP_LOGW(TAG, "Rolling code was 0, using default: %" PRIu32, rolling_code_to_use);
         }
 
+        ESP_LOGI(TAG, "Calling gdo_set_rolling_code(%" PRIu32 ")", rolling_code_to_use);
         gdo_set_rolling_code(rolling_code_to_use);
+      } else {
+        ESP_LOGW(TAG, "⚠ rolling_code_ entity is null!");
+      }
+
+      // Load open duration from NVS and set it in GDOLIB (if previously learned)
+      if (this->open_duration_ && this->open_duration_->has_state()) {
+        uint16_t open_ms = (uint16_t)(this->open_duration_->state * 1000.0f);  // Convert seconds to ms
+        ESP_LOGI(TAG, "Loading stored open duration: %.1f seconds (%" PRIu16 " ms)",
+                 this->open_duration_->state, open_ms);
+        gdo_set_open_duration(open_ms);
+      }
+
+      // Load close duration from NVS and set it in GDOLIB (if previously learned)
+      if (this->close_duration_ && this->close_duration_->has_state()) {
+        uint16_t close_ms = (uint16_t)(this->close_duration_->state * 1000.0f);  // Convert seconds to ms
+        ESP_LOGI(TAG, "Loading stored close duration: %.1f seconds (%" PRIu16 " ms)",
+                 this->close_duration_->state, close_ms);
+        gdo_set_close_duration(close_ms);
       }
 
 #ifdef TOF_SENSOR
@@ -406,6 +510,9 @@ namespace esphome
 
       if (this->start_gdo_)
       {
+        ESP_LOGI(TAG, "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        ESP_LOGI(TAG, "Starting GDO communication immediately (WiFi already connected)");
+        ESP_LOGI(TAG, "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
         gdo_start(gdo_event_handler, this);
         ESP_LOGI(TAG, "secplus GDO started!");
 
@@ -418,10 +525,15 @@ namespace esphome
       }
       else
       {
+        ESP_LOGI(TAG, "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        ESP_LOGI(TAG, "Waiting for WiFi connection before starting GDO...");
+        ESP_LOGI(TAG, "Will check every 500ms until start_gdo_ flag is set");
+        ESP_LOGI(TAG, "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
         // check every 500ms for readiness before starting GDO
         this->set_interval("gdo_start", 500, [this]()
                            {
       if (this->start_gdo_) {
+        ESP_LOGI(TAG, "WiFi connected! Starting GDO communication now...");
         gdo_start(gdo_event_handler, this);
         ESP_LOGI(TAG, "secplus GDO started!");
         this->cancel_interval("gdo_start");

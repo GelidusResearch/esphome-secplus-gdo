@@ -46,7 +46,7 @@ public:
   void start_gdo() { start_gdo_ = true; }
   // Use Late priority so we do not start the GDO lib until all saved
   // preferences are loaded
-  float get_setup_priority() const override { return setup_priority::BEFORE_CONNECTION; }
+  float get_setup_priority() const override { return setup_priority::LATE; }
 
   void register_protocol_select(GDOSelect *select) {
     this->protocol_select_ = select;
@@ -200,6 +200,13 @@ public:
     }
   }
 
+  uint32_t get_rolling_code() const {
+    if (rolling_code_ && rolling_code_->has_state()) {
+      return (uint32_t)rolling_code_->state;
+    }
+    return 0;
+  }
+
   void register_min_command_interval(GDONumber *num) { min_command_interval_ = num; }
   void set_min_command_interval(uint32_t num) {
     if (min_command_interval_) {
@@ -249,6 +256,19 @@ public:
     return MAX_SYNC_RETRIES;
   }
 
+  // Public methods for restart-after-sync-failure management
+  bool has_restarted_for_sync() const {
+    return has_restarted_for_sync_;
+  }
+
+  void set_has_restarted_for_sync(bool value) {
+    has_restarted_for_sync_ = value;
+  }
+
+  void save_restart_flag() {
+    restart_attempt_pref_.save(&has_restarted_for_sync_);
+  }
+
 protected:
   gdo_status_t status_{};
   std::function<void(gdo_lock_state_t)> f_lock{nullptr};
@@ -289,6 +309,11 @@ protected:
   // Sync retry tracking
   uint8_t sync_retry_count_{0};
   static const uint8_t MAX_SYNC_RETRIES = 5;
+
+  // Track if we've already restarted once after sync failure
+  // Stored in RTC memory so it persists across warm restarts but not power cycles
+  ESPPreferenceObject restart_attempt_pref_;
+  bool has_restarted_for_sync_{false};
 
 }; // GDOComponent
 } // namespace secplus_gdo
