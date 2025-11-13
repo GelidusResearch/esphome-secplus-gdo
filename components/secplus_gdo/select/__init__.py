@@ -21,7 +21,7 @@ CONFIG_SCHEMA = (
     .extend(
         {
             cv.GenerateID(CONF_SECPLUS_GDO_ID): cv.use_id(SECPLUS_GDO),
-            cv.Optional(CONF_INITIAL_OPTION, "auto"): cv.one_of(
+            cv.Optional(CONF_INITIAL_OPTION, "security+2.0"): cv.one_of(
                 *CONF_PROTOCOL_SELECT_OPTIONS, lower=True
             ),
         }
