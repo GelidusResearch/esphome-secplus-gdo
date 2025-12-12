@@ -305,12 +305,6 @@ namespace esphome
         break;
       case GDO_CB_EVENT_UPDATE_TTC:
         ESP_LOGI(TAG, "Update Time to close: %d", status->ttc_seconds);
-        if ((status->ttc_seconds == 0) && (status->ttc_enabled)) {
-          // Use public defer method to avoid blocking in event handler
-          gdo->defer_operation("ttc_close", 10, []() {
-            gdo_door_close();
-          });
-        }
         break;
       case GDO_CB_EVENT_PAIRED_DEVICES:
         ESP_LOGI(TAG,
