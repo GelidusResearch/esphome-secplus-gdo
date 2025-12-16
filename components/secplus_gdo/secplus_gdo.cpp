@@ -360,6 +360,14 @@ namespace esphome
           std::bind(&esphome::secplus_gdo::GDODoor::set_toggle_only, this->door_,
                     std::placeholders::_1));
 #endif
+#ifdef GDO_CLOSE_NOTIFY
+      // Set the close notification state and control here because we cannot guarantee the
+      // cover instance was created before the switch
+      this->door_->set_close_notification(this->close_notification_switch_->state);
+      this->close_notification_switch_->set_control_function(
+          std::bind(&esphome::secplus_gdo::GDODoor::set_close_notification, this->door_,
+                    std::placeholders::_1));
+#endif
 #ifdef GDO_OBST_OVERRIDE
       // Set the obstruction override state and control
       this->obst_override_switch_->set_control_function(
