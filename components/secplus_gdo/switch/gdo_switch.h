@@ -20,6 +20,7 @@ enum SwitchType {
   LEARN,
   TOGGLE_ONLY,
   OBST_OVERRIDE,
+  CLOSE_NOTIFICATION,
 };
 
 class GDOSwitch : public switch_::Switch, public Component {
@@ -49,6 +50,13 @@ public:
     }
 
     if (this->type_ == SwitchType::OBST_OVERRIDE) {
+      if (this->f_control) {
+        this->f_control(state);
+        this->pref_.save(&state);
+      }
+    }
+
+    if (this->type_ == SwitchType::CLOSE_NOTIFICATION) {
       if (this->f_control) {
         this->f_control(state);
         this->pref_.save(&state);
