@@ -212,9 +212,9 @@ namespace esphome
             ESP_LOGI(TAG, "Sync successful - restart flag cleared");
           }
 
-          // Note: Cannot cancel timeout from static event handler due to access restrictions
-          // The timeout will naturally expire, which is fine since sync is now successful
-          ESP_LOGI(TAG, "Sync successful - TX pin should now be in normal operation mode");
+          // On sync success cancel the timeout
+          gdo->cancel_operation("sync_timeout");
+          ESP_LOGI(TAG, "Sync successful, TX pin in normal operation mode");
         }
         gdo->set_sync_state(status->synced);
         break;
@@ -459,11 +459,11 @@ namespace esphome
         uint32_t client_id_to_use = 0;
         if (this->client_id_->has_state()) {
           client_id_to_use = (uint32_t)this->client_id_->state;
-          ESP_LOGI(TAG, "✓ Client ID has state: %" PRIu32, client_id_to_use);
+          ESP_LOGI(TAG, "Client ID has state: %" PRIu32, client_id_to_use);
         } else {
           // No stored state, use the component's initial value
           client_id_to_use = (uint32_t)this->client_id_->traits.get_min_value();
-          ESP_LOGI(TAG, "⚠ No stored client ID state, using initial value: %" PRIu32, client_id_to_use);
+          ESP_LOGI(TAG, "No stored client ID state, using initial value: %" PRIu32, client_id_to_use);
         }
 
         // If client ID is still 0, it's invalid - use a reasonable default
@@ -474,8 +474,6 @@ namespace esphome
 
         ESP_LOGI(TAG, "Calling gdo_set_client_id(%" PRIu32 ")", client_id_to_use);
         gdo_set_client_id(client_id_to_use);
-      } else {
-        ESP_LOGW(TAG, "⚠ client_id_ entity is null!");
       }
 
       if (this->rolling_code_) {
