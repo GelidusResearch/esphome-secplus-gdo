@@ -42,7 +42,7 @@ public:
   void update_state(gdo_protocol_type_t protocol) {
     if (this->has_index(protocol)) {
       std::string value = this->at(protocol).value();
-      if (this->has_state() && value != this->state) {
+      if (this->has_state() && value != this->current_option()) {
         this->pref_.save(&protocol);
       }
 
