@@ -62,12 +62,14 @@ public:
         value = 500;  // Default 500ms for min command interval
         ESP_LOGI("GDONumber", "No stored min_command_interval, using default: %.1f", value);
       } else if (obj_id.find("rolling_code") != std::string::npos) {
-        value = 0;  // Default rolling code for Security+ V2 protocol compliance
+        value = 100;  // Default rolling code for Security+ V2 protocol compliance
         ESP_LOGW("GDONumber", "NVS EMPTY: No stored rolling_code, using default: %.0f", value);
       } else if (obj_id.find("client_id") != std::string::npos) {
-        value = 1638;  // Default client ID for Security+ V2 (0x666)
-        value = normalize_client_id(value);  // Normalize to 0xXXX539 format
-        ESP_LOGW("GDONumber", "NVS EMPTY: No stored client_id, using normalized default: %.0f (0x%X)", value, (uint32_t)value);
+        // Don't set a default client_id - let secplus_gdo.cpp generate a random one
+        // This ensures has_state() returns false, triggering random generation
+        ESP_LOGW("GDONumber", "NVS EMPTY: No stored client_id, will be generated randomly");
+        this->last_saved_value_ = NAN;
+        return;  // Don't publish state - let random generation happen in secplus_gdo.cpp
       } else if (is_duration) {
         // For duration measurements, don't set an initial state if no measurement exists
         ESP_LOGI("GDONumber", "No stored duration for %s, will remain unknown until measured", obj_id.c_str());
