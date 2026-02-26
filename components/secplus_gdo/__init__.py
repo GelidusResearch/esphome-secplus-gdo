@@ -71,15 +71,21 @@ async def to_code(config):
     await cg.register_component(var, config)
     cg.add_define("GDO_UART_TX_PIN", config[CONF_OUTPUT_GDO]["number"])
     cg.add_define("GDO_UART_RX_PIN", config[CONF_INPUT_GDO]["number"])
+    tof_sda_pin = config.get(CONF_TOF_SDA_PIN)
+    tof_scl_pin = config.get(CONF_TOF_SCL_PIN)
+    if bool(tof_sda_pin) != bool(tof_scl_pin):
+        raise cv.Invalid(
+            "Both tof_sda_pin and tof_scl_pin must be set together to enable ToF"
+        )
+    tof_enabled = bool(tof_sda_pin and tof_scl_pin)
     if CONF_RF_OUTPUT_PIN in config and config[CONF_RF_OUTPUT_PIN]:
         cg.add_define("GDO_RF_TX_PIN", config[CONF_RF_OUTPUT_PIN]["number"])
     if CONF_RF_INPUT_PIN in config and config[CONF_RF_INPUT_PIN]:
         cg.add_define("GDO_RF_RX_PIN", config[CONF_RF_INPUT_PIN]["number"])
-    if CONF_TOF_SDA_PIN in config and config[CONF_TOF_SDA_PIN]:
-        cg.add_define("GDO_TOF_SDA_PIN", config[CONF_TOF_SDA_PIN]["number"])
+    if tof_enabled:
+        cg.add_define("GDO_TOF_SDA_PIN", tof_sda_pin["number"])
+        cg.add_define("GDO_TOF_SCL_PIN", tof_scl_pin["number"])
         cg.add_build_flag("-DTOF_SENSOR")
-    if CONF_TOF_SCL_PIN in config and config[CONF_TOF_SCL_PIN]:
-        cg.add_define("GDO_TOF_SCL_PIN", config[CONF_TOF_SCL_PIN]["number"])
     if CONF_DC_OPEN_PIN in config and config[CONF_DC_OPEN_PIN]:
         cg.add_define("GDO_DC_OPEN_PIN", config[CONF_DC_OPEN_PIN]["number"])
     if CONF_DC_CLOSE_PIN in config and config[CONF_DC_CLOSE_PIN]:
@@ -91,11 +97,12 @@ async def to_code(config):
         cg.add_define("GDO_OBST_FROM_STATE", True)
 
     # Add the library dependencies - reads version.json in the repo for the version
-    cg.add_library(
-        name="VL53L1",
-        repository="https://github.com/gelidusresearch/VL53L1_ESPIDF.git",
-        version="1.0.0",
-    )
+    if tof_enabled:
+        cg.add_library(
+            name="VL53L1",
+            repository="https://github.com/gelidusresearch/VL53L1_ESPIDF.git",
+            version="1.1.0",
+        )
 
     cg.add_library(
         name="GDOLIB",
