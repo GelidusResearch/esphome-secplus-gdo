@@ -140,7 +140,10 @@ public:
 #endif
 
 
-  void register_door(GDODoor *door) { this->door_ = door; }
+  void register_door(GDODoor *door) { 
+    this->door_ = door; 
+    door->set_parent(this);
+  }
   void set_door_state(gdo_door_state_t state, float position) {
     if (this->door_) {
       this->door_->set_state(state, position);
@@ -220,9 +223,16 @@ public:
       time_to_close_->update_state(num);
     }
   }
+  uint16_t get_time_to_close() {
+    if (time_to_close_) {
+      return static_cast<uint16_t>(time_to_close_->state);
+    }
+    return 0;
+  }
 
   void register_toggle_only(GDOSwitch *sw) { this->toggle_only_switch_ = sw; }
   void register_obst_override(GDOSwitch *sw) { this->obst_override_switch_ = sw; }
+  void register_close_notification(GDOSwitch *sw) { this->close_notification_switch_ = sw; }
   void set_sync_state(bool synced);
 
   // Public method to defer operations to avoid blocking in event handlers
@@ -303,6 +313,7 @@ protected:
   GDOSwitch *learn_switch_{nullptr};
   GDOSwitch *toggle_only_switch_{nullptr};
   GDOSwitch *obst_override_switch_{nullptr};
+  GDOSwitch *close_notification_switch_{nullptr};
   bool start_gdo_{false};
   bool gdo_started_{false};
 

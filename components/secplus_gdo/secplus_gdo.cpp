@@ -22,6 +22,7 @@
 #include "inttypes.h"
 #include "secplus_gdo.h"
 #include "driver/gpio.h"
+#include "esp_random.h"
 #ifdef TOF_SENSOR
 #include "vehicle.h"
 #endif
@@ -39,6 +40,17 @@ namespace esphome
 #endif
 
     static const char *const TAG = "secplus_gdo";
+
+    // Generate a random client_id in the valid Security+ format (0xXXX539)
+    // Valid range: 0x539 to 0x7ff539 (max per __init__.py is 0x7ff666)
+    static uint32_t generate_random_client_id() {
+      // Generate random value between 0x000 and 0x7ff (2047)
+      uint32_t random_prefix = esp_random() % 0x800;
+      // Combine with mandatory 0x539 suffix
+      uint32_t client_id = (random_prefix << 12) | 0x539;
+      ESP_LOGI(TAG, "Generated random client_id: 0x%X (prefix: 0x%X)", client_id, random_prefix);
+      return client_id;
+    }
 
     // Add diagnostic counters to measure event frequency
     static uint32_t door_position_events = 0;
@@ -59,6 +71,17 @@ namespace esphome
       if (!gdo) {
         ESP_LOGE(TAG, "Invalid GDO component pointer");
         return;
+      }
+
+      if (status->protocol == GDO_PROTOCOL_SEC_PLUS_V2) {
+        static uint32_t last_rc = 0;
+        uint32_t current_rc = gdo->get_rolling_code();
+
+        if (status->rolling_code != last_rc && status->rolling_code > current_rc) {
+          ESP_LOGV(TAG, "Rolling code: %" PRIu32 " → %" PRIu32, current_rc, status->rolling_code);
+          gdo->set_rolling_code(status->rolling_code);
+          last_rc = status->rolling_code;
+        }
       }
 
       // Wrap everything in a try-catch to prevent crashes
@@ -85,7 +108,7 @@ namespace esphome
         }
 
         // Don't attempt sync retries for unknown protocols to prevent panics
-        if (status->protocol == GDO_PROTOCOL_UNKNOWN && !status->synced) {
+        if (status->protocol == GDO_PROTOCOL_MAX && !status->synced) {
           ESP_LOGW(TAG, "Unknown protocol detected, skipping sync retries. Please set protocol manually.");
           gdo->reset_sync_retry();
           gdo->set_sync_state(status->synced);
@@ -142,9 +165,9 @@ namespace esphome
 
         if (!status->synced)
         {
-          // Additional safety: If we've already detected a problematic protocol,
-          // don't attempt any sync retries to prevent crashes
-          if (status->protocol == GDO_PROTOCOL_UNKNOWN ||
+          // Additional safety: If we've already detected a problematic action,
+          // don't attempt any sync retries to prevent crashing other devices.
+          if (status->protocol == GDO_PROTOCOL_MAX ||
               status->protocol == GDO_PROTOCOL_SEC_PLUS_V1) {
             ESP_LOGW(TAG, "Skipping sync retries for problematic protocol: %s",
                      gdo_protocol_type_to_string(status->protocol));
@@ -181,8 +204,7 @@ namespace esphome
           } else {
             // Already attempted restart once, don't try again to prevent boot loop
             ESP_LOGW(TAG, "Sync failed but restart already attempted - manual intervention required");
-            ESP_LOGW(TAG, "Please set Client ID and Rolling Code manually in Home Assistant.");
-            ESP_LOGW(TAG, "TX pin may remain active until manual sync is successful.");
+            ESP_LOGW(TAG, "Please set Client ID (Re-Sync button) in Home Assistant or WEB UI.");
             gdo->reset_sync_retry();
             gdo->set_sync_state(status->synced);
             return;  // Exit early
@@ -201,9 +223,9 @@ namespace esphome
             ESP_LOGI(TAG, "Sync successful - restart flag cleared");
           }
 
-          // Note: Cannot cancel timeout from static event handler due to access restrictions
-          // The timeout will naturally expire, which is fine since sync is now successful
-          ESP_LOGI(TAG, "Sync successful - TX pin should now be in normal operation mode");
+          // On sync success cancel the timeout
+          gdo->cancel_operation("sync_timeout");
+          ESP_LOGI(TAG, "Sync successful, TX pin in normal operation mode");
         }
         gdo->set_sync_state(status->synced);
         break;
@@ -355,6 +377,14 @@ namespace esphome
           std::bind(&esphome::secplus_gdo::GDODoor::set_toggle_only, this->door_,
                     std::placeholders::_1));
 #endif
+#ifdef GDO_CLOSE_NOTIFY
+      // Set the close notification state and control here because we cannot guarantee the
+      // cover instance was created before the switch
+      this->door_->set_close_notification(this->close_notification_switch_->state);
+      this->close_notification_switch_->set_control_function(
+          std::bind(&esphome::secplus_gdo::GDODoor::set_close_notification, this->door_,
+                    std::placeholders::_1));
+#endif
 #ifdef GDO_OBST_OVERRIDE
       // Set the obstruction override state and control
       this->obst_override_switch_->set_control_function(
@@ -444,35 +474,33 @@ namespace esphome
       ESP_LOGI(TAG, "Loading credentials from NVS...");
       if (this->client_id_) {
         uint32_t client_id_to_use = 0;
-        if (this->client_id_->has_state()) {
+        bool has_stored_state = this->client_id_->has_state();
+
+        if (has_stored_state) {
           client_id_to_use = (uint32_t)this->client_id_->state;
-          ESP_LOGI(TAG, "✓ Client ID has state: %" PRIu32, client_id_to_use);
+          ESP_LOGI(TAG, "Client ID loaded from NVS: 0x%X (%" PRIu32 ")", client_id_to_use, client_id_to_use);
         } else {
-          // No stored state, use the component's initial value
-          client_id_to_use = (uint32_t)this->client_id_->traits.get_min_value();
-          ESP_LOGI(TAG, "⚠ No stored client ID state, using initial value: %" PRIu32, client_id_to_use);
+          // No stored state in NVS - generate a random client_id
+          client_id_to_use = generate_random_client_id();
+          ESP_LOGW(TAG, "No stored client_id in NVS, generated random: 0x%X (%" PRIu32 ")", client_id_to_use, client_id_to_use);
+          // Save the generated random client_id to NVS for persistence
+          if (this->client_id_) {
+            this->client_id_->publish_state(client_id_to_use);
+          }
         }
 
-        // If client ID is still 0, it's invalid - use a reasonable default
-        if (client_id_to_use == 0) {
-          client_id_to_use = 1000;  // Default client ID
-          ESP_LOGW(TAG, "Client ID was 0, using default: %" PRIu32, client_id_to_use);
-        }
-
-        ESP_LOGI(TAG, "Calling gdo_set_client_id(%" PRIu32 ")", client_id_to_use);
+        ESP_LOGI(TAG, "Calling gdo_set_client_id(0x%X / %" PRIu32 ")", client_id_to_use, client_id_to_use);
         gdo_set_client_id(client_id_to_use);
-      } else {
-        ESP_LOGW(TAG, "⚠ client_id_ entity is null!");
       }
 
       if (this->rolling_code_) {
         uint32_t rolling_code_to_use = 0;
         if (this->rolling_code_->has_state()) {
           rolling_code_to_use = (uint32_t)this->rolling_code_->state;
-          ESP_LOGI(TAG, "✓ Rolling code has state: %" PRIu32, rolling_code_to_use);
+          ESP_LOGI(TAG, "Rolling code has state: %" PRIu32, rolling_code_to_use);
         } else {
           rolling_code_to_use = (uint32_t)this->rolling_code_->traits.get_min_value();
-          ESP_LOGI(TAG, "⚠ No stored rolling code state, using initial value: %" PRIu32, rolling_code_to_use);
+          ESP_LOGI(TAG, "No stored rolling code state, using initial value: %" PRIu32, rolling_code_to_use);
         }
 
         // If rolling code is zero, set to default value
@@ -484,7 +512,7 @@ namespace esphome
         ESP_LOGI(TAG, "Calling gdo_set_rolling_code(%" PRIu32 ")", rolling_code_to_use);
         gdo_set_rolling_code(rolling_code_to_use);
       } else {
-        ESP_LOGW(TAG, "⚠ rolling_code_ entity is null!");
+        ESP_LOGW(TAG, "Rolling_code_ entity is null!");
       }
 
       // Load open duration from NVS and set it in GDOLIB (if previously learned)
@@ -510,32 +538,18 @@ namespace esphome
 
       if (this->start_gdo_)
       {
-        ESP_LOGI(TAG, "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-        ESP_LOGI(TAG, "Starting GDO communication immediately (WiFi already connected)");
-        ESP_LOGI(TAG, "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
         gdo_start(gdo_event_handler, this);
-        ESP_LOGI(TAG, "secplus GDO started!");
+        ESP_LOGI(TAG, "Secplus GDO started!");
 
-        // Add a timeout to stop transmission if no sync after 30 seconds
-        this->set_timeout("sync_timeout", 30000, [this]() {
-          ESP_LOGW(TAG, "Sync timeout reached - manually stopping TX to prevent continuous transmission");
-          gpio_set_level((gpio_num_t)GDO_UART_TX_PIN, 0);
-          gpio_set_direction((gpio_num_t)GDO_UART_TX_PIN, GPIO_MODE_OUTPUT);
-        });
       }
       else
       {
-        ESP_LOGI(TAG, "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-        ESP_LOGI(TAG, "Waiting for WiFi connection before starting GDO...");
-        ESP_LOGI(TAG, "Will check every 500ms until start_gdo_ flag is set");
-        ESP_LOGI(TAG, "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
         // check every 500ms for readiness before starting GDO
         this->set_interval("gdo_start", 500, [this]()
                            {
       if (this->start_gdo_) {
-        ESP_LOGI(TAG, "WiFi connected! Starting GDO communication now...");
         gdo_start(gdo_event_handler, this);
-        ESP_LOGI(TAG, "secplus GDO started!");
+        ESP_LOGI(TAG, "Secplus GDO started!");
         this->cancel_interval("gdo_start");
       } });
       }

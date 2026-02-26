@@ -45,8 +45,8 @@ CONFIG_SCHEMA = (
     .extend(
         {
             cv.Required(CONF_TYPE): cv.enum(TYPES, lower=True),
-            cv.Optional('client_id', default=1638): cv.uint32_t,
-            cv.Optional('rolling_code', default=0): cv.uint32_t,
+            cv.Optional('client_id', default=0x2908): cv.uint32_t,
+            cv.Optional('rolling_code', default=100): cv.uint32_t,
             cv.Optional('min_command_interval', default=250): cv.uint32_t,
             cv.Optional('time_to_close', default=300): cv.uint16_t,
             cv.Optional('vehicle_parked_threshold', default=100): cv.uint16_t,
@@ -77,8 +77,7 @@ async def to_code(config):
         await number.register_number(var, config, min_value=0x400, max_value=0x7ff666, step=1)
     elif config[CONF_TYPE] == "rolling_code":
         # Security+ V2 rolling code: 32-bit value, but practical max around 16M (0xFFFFFF)
-        # Default minimum of 256 (0x100) for Security+ V2 protocol compliance
-        await number.register_number(var, config, min_value=256, max_value=0xFFFFFF, step=1)
+        await number.register_number(var, config, min_value=100, max_value=0xFFFFFF, step=1)
     elif config[CONF_TYPE] == "min_command_interval":
         # Min command interval: 50-450ms, default 250ms (allow user to go as low as 50ms for responsiveness)
         await number.register_number(var, config, min_value=50, max_value=450, step=50)

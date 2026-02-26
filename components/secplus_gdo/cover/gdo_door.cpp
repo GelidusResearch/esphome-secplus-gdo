@@ -1,5 +1,6 @@
 #include "esphome/core/log.h"
 #include "gdo_door.h"
+#include "../secplus_gdo.h"
 
 namespace esphome {
 namespace secplus_gdo {
@@ -63,26 +64,38 @@ void GDODoor::set_state(gdo_door_state_t state, float position) {
 }
 
 void GDODoor::do_action_after_warning(const cover::CoverCall &call) {
-
-  if (this->pre_close_active_) {
-    return;
+  // Save current TTC value
+  uint16_t saved_ttc = 0;
+  if (this->parent_) {
+    saved_ttc = this->parent_->get_time_to_close();
+    ESP_LOGI(TAG, "Close notification: Saved TTC=%d, setting to 1 for warning", saved_ttc);
   }
 
-  ESP_LOGD(TAG, "WARNING for %dms", this->pre_close_duration_);
   if (this->pre_close_start_trigger) {
     this->pre_close_start_trigger->trigger();
   }
 
+  // Set TTC to 1 second - this triggers the 10-second warning
+  esp_err_t err = gdo_set_time_to_close(1);
+  if (err != ESP_OK) {
+    ESP_LOGW(TAG, "Failed to set TTC for warning, closing without warning");
+    this->do_action(call);
+    return;
+  }
 
-  this->set_timeout("pre_close", this->pre_close_duration_, [this, call]() {
-    this->pre_close_active_ = false;
+  // Trigger the close command which will execute after warning completes (~11 seconds)
+  this->set_timeout("close_after_warning", 11000, [this, call, saved_ttc]() {
+    ESP_LOGI(TAG, "Warning complete, closing door now");
+    this->do_action(call);
+
+    // Restore original TTC after door starts closing
+    ESP_LOGI(TAG, "Restoring TTC to %d", saved_ttc);
+    gdo_set_time_to_close(saved_ttc);
+
     if (this->pre_close_end_trigger) {
       this->pre_close_end_trigger->trigger();
     }
-    this->do_action(call);
   });
-
-  this->pre_close_active_ = true;
 }
 
 void GDODoor::do_action(const cover::CoverCall &call) {
@@ -198,7 +211,11 @@ void GDODoor::control(const cover::CoverCall &call) {
     ESP_LOGD(TAG, "Toggle command received");
     if (this->position != COVER_CLOSED) {
       this->target_position_ = COVER_CLOSED;
-      this->do_action_after_warning(call);
+      if (this->close_notification_) {
+        this->do_action_after_warning(call);
+      } else {
+        this->do_action(call);
+      }
     } else {
       this->target_position_ = COVER_OPEN;
       this->do_action(call);
@@ -253,15 +270,23 @@ void GDODoor::control(const cover::CoverCall &call) {
       this->do_action(call);
     } else if (pos == COVER_CLOSED) {
       ESP_LOGD(TAG, "Close command received");
-      this->do_action_after_warning(call);
+      if (this->close_notification_) {
+        this->do_action_after_warning(call);
+      } else {
+        this->do_action(call);
+      }
     } else {
       ESP_LOGD(TAG, "Move to position %f command received", pos);
       if (pos < this->position) {
         ESP_LOGV(TAG,
                  "Current position: %f; Intended position: %f; Door will move "
-                 "down after warning",
-                 this->position, pos);
-        this->do_action_after_warning(call);
+                 "down%s",
+                 this->position, pos, this->close_notification_ ? " after warning" : " immediately");
+        if (this->close_notification_) {
+          this->do_action_after_warning(call);
+        } else {
+          this->do_action(call);
+        }
       } else {
         ESP_LOGV(TAG,
                  "Current position: %f; Intended position: %f; Door will move "

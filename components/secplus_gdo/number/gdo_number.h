@@ -59,15 +59,17 @@ public:
     if (!loaded_from_nvs) {
       // Set appropriate default values based on the component type
       if (obj_id.find("min_command_interval") != std::string::npos) {
-        value = 250;  // Default 250ms for min command interval
+        value = 500;  // Default 500ms for min command interval
         ESP_LOGI("GDONumber", "No stored min_command_interval, using default: %.1f", value);
       } else if (obj_id.find("rolling_code") != std::string::npos) {
-        value = 0;  // Default rolling code for Security+ V2 protocol compliance
+        value = 100;  // Default rolling code for Security+ V2 protocol compliance
         ESP_LOGW("GDONumber", "NVS EMPTY: No stored rolling_code, using default: %.0f", value);
       } else if (obj_id.find("client_id") != std::string::npos) {
-        value = 1638;  // Default client ID for Security+ V2 (0x666)
-        value = normalize_client_id(value);  // Normalize to 0xXXX539 format
-        ESP_LOGW("GDONumber", "NVS EMPTY: No stored client_id, using normalized default: %.0f (0x%X)", value, (uint32_t)value);
+        // Don't set a default client_id - let secplus_gdo.cpp generate a random one
+        // This ensures has_state() returns false, triggering random generation
+        ESP_LOGW("GDONumber", "NVS EMPTY: No stored client_id, will be generated randomly");
+        this->last_saved_value_ = NAN;
+        return;  // Don't publish state - let random generation happen in secplus_gdo.cpp
       } else if (is_duration) {
         // For duration measurements, don't set an initial state if no measurement exists
         ESP_LOGI("GDONumber", "No stored duration for %s, will remain unknown until measured", obj_id.c_str());
@@ -140,7 +142,7 @@ public:
             ESP_LOGW("GDONumber", "Failed to save duration value (hash: %u): %.1f", this->get_object_id_hash(), value);
           } else {
             this->last_saved_value_ = value;
-            ESP_LOGD("GDONumber", "Successfully saved duration value: %.1f", value);
+            ESP_LOGV("GDONumber", "Successfully saved duration value: %.1f", value);
           }
         });
       }
@@ -151,9 +153,9 @@ public:
       } else {
         // Use INFO level for critical credentials (client_id, rolling_code) for visibility
         if (obj_id.find("client_id") != std::string::npos || obj_id.find("rolling_code") != std::string::npos) {
-          ESP_LOGI("GDONumber", "NVS SAVED: %s = %.0f", obj_id.c_str(), value);
+          ESP_LOGV("GDONumber", "NVS SAVED: %s = %.0f", obj_id.c_str(), value);
         } else {
-          ESP_LOGD("GDONumber", "Successfully saved value for %s: %.1f", obj_id.c_str(), value);
+          ESP_LOGV("GDONumber", "Successfully saved value for %s: %.1f", obj_id.c_str(), value);
         }
       }
     }

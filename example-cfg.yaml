@@ -264,6 +264,7 @@ switch:
     type: toggle_only
     secplus_gdo_id: ${id_prefix}
     name: Toggle Only
+    restore_mode: RESTORE_DEFAULT_OFF
     icon: mdi:plus-box
 
   # - platform: secplus_gdo
@@ -271,7 +272,16 @@ switch:
   #   type: obst_override
   #   secplus_gdo_id: grgdo
   #   name: Obstruction Override
+  #   restore_mode: RESTORE_DEFAULT_OFF
   #   icon: mdi:plus-box
+
+  - platform: secplus_gdo
+    id: gdo_close_notification
+    type: close_notification
+    secplus_gdo_id: ${id_prefix}
+    name: "Close Notification"
+    restore_mode: RESTORE_DEFAULT_OFF
+    icon: "mdi:bell-alert"
 
 select:
   - platform: secplus_gdo
