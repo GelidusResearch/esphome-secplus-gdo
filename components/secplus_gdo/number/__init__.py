@@ -23,7 +23,6 @@ from esphome.components import number
 from esphome.const import CONF_ID, UNIT_SECOND
 
 from .. import SECPLUS_GDO_CONFIG_SCHEMA, secplus_gdo_ns, CONF_SECPLUS_GDO_ID
-from .. import CONF_TOF_SDA_PIN
 
 DEPENDENCIES = ["secplus_gdo"]
 
