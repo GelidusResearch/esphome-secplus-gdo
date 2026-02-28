@@ -233,12 +233,12 @@ public:
   void set_sync_state(bool synced);
 
   // Public method to defer operations to avoid blocking in event handlers
-  void defer_operation(const std::string &name, uint32_t delay, std::function<void()> &&f) {
+  void defer_operation(const char *name, uint32_t delay, std::function<void()> &&f) {
     this->set_timeout(name, delay, std::move(f));
   }
 
   // Public method to cancel timeouts (wraps protected cancel_timeout)
-  void cancel_operation(const std::string &name) {
+  void cancel_operation(const char *name) {
     this->cancel_timeout(name);
   }
 
