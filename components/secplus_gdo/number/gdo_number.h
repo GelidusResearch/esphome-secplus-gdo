@@ -20,6 +20,7 @@
 #include "esphome/components/number/number.h"
 #include "esphome/core/component.h"
 #include "esphome/core/preferences.h"
+#include <array>
 #include <cmath>
 
 
@@ -47,7 +48,8 @@ public:
 
   void setup() override {
     float value;
-    std::string obj_id = this->get_object_id();
+    std::array<char, OBJECT_ID_MAX_LEN> obj_id_buf{};
+    std::string obj_id(this->get_object_id_to(obj_id_buf).c_str());
     bool is_duration = (obj_id.find("open_duration") != std::string::npos ||
                        obj_id.find("close_duration") != std::string::npos);
 
@@ -124,7 +126,8 @@ public:
     // Only save to persistent storage if the value has changed significantly
     // OR if it hasn't been saved yet (last_saved_value_ is NAN means first save needed)
     // This reduces flash writes and improves responsiveness
-    std::string obj_id = this->get_object_id();
+    std::array<char, OBJECT_ID_MAX_LEN> obj_id_buf{};
+    std::string obj_id(this->get_object_id_to(obj_id_buf).c_str());
     bool needs_save = value_changed || std::isnan(last_saved_value_) || (fabs(value - last_saved_value_) > 0.01f);
 
     if (!needs_save) {
@@ -162,7 +165,8 @@ public:
   }
 
   void control(float value) override {
-    std::string obj_id = this->get_object_id();
+    std::array<char, OBJECT_ID_MAX_LEN> obj_id_buf{};
+    std::string obj_id(this->get_object_id_to(obj_id_buf).c_str());
 
     // Normalize client_id if being set by user
     if (obj_id.find("client_id") != std::string::npos) {

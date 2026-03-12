@@ -20,10 +20,9 @@
 
 import esphome.codegen as cg
 import esphome.config_validation as cv
-import voluptuous as vol
 from esphome import pins
+from esphome.components import sensor
 from esphome.const import CONF_ID
-from esphome import core
 
 DEPENDENCIES = ["preferences"]
 MULTI_CONF = True
@@ -38,10 +37,9 @@ DEFAULT_INPUT_GDO = ("2")
 CONF_INPUT_OBST = "input_obst_pin"
 CONF_RF_OUTPUT_PIN = "rf_tx_pin"
 CONF_RF_INPUT_PIN = "rf_rx_pin"
-CONF_TOF_SDA_PIN = "tof_sda_pin"
-CONF_TOF_SCL_PIN = "tof_scl_pin"
 CONF_DC_OPEN_PIN = "dc_open_pin"
 CONF_DC_CLOSE_PIN = "dc_close_pin"
+CONF_TOF_DISTANCE_SENSOR = "tof_distance_sensor"
 CONF_SECPLUS_GDO_ID = "secplus_gdo_id"
 
 
@@ -52,11 +50,10 @@ CONFIG_SCHEMA = cv.Schema(
         cv.Required(CONF_INPUT_GDO): pins.gpio_input_pin_schema,
         cv.Optional(CONF_RF_OUTPUT_PIN): pins.gpio_output_pin_schema,
         cv.Optional(CONF_RF_INPUT_PIN): pins.gpio_input_pin_schema,
-        cv.Optional(CONF_TOF_SDA_PIN): pins.gpio_input_pin_schema,
-        cv.Optional(CONF_TOF_SCL_PIN): pins.gpio_input_pin_schema,
         cv.Optional(CONF_INPUT_OBST): cv.Any(cv.none, pins.gpio_input_pin_schema),
         cv.Optional(CONF_DC_OPEN_PIN): pins.gpio_input_pin_schema,
         cv.Optional(CONF_DC_CLOSE_PIN): pins.gpio_input_pin_schema,
+        cv.Optional(CONF_TOF_DISTANCE_SENSOR): cv.use_id(sensor.Sensor),
     }
 ).extend(cv.COMPONENT_SCHEMA)
 
@@ -71,21 +68,10 @@ async def to_code(config):
     await cg.register_component(var, config)
     cg.add_define("GDO_UART_TX_PIN", config[CONF_OUTPUT_GDO]["number"])
     cg.add_define("GDO_UART_RX_PIN", config[CONF_INPUT_GDO]["number"])
-    tof_sda_pin = config.get(CONF_TOF_SDA_PIN)
-    tof_scl_pin = config.get(CONF_TOF_SCL_PIN)
-    if bool(tof_sda_pin) != bool(tof_scl_pin):
-        raise cv.Invalid(
-            "Both tof_sda_pin and tof_scl_pin must be set together to enable ToF"
-        )
-    tof_enabled = bool(tof_sda_pin and tof_scl_pin)
     if CONF_RF_OUTPUT_PIN in config and config[CONF_RF_OUTPUT_PIN]:
         cg.add_define("GDO_RF_TX_PIN", config[CONF_RF_OUTPUT_PIN]["number"])
     if CONF_RF_INPUT_PIN in config and config[CONF_RF_INPUT_PIN]:
         cg.add_define("GDO_RF_RX_PIN", config[CONF_RF_INPUT_PIN]["number"])
-    if tof_enabled:
-        cg.add_define("GDO_TOF_SDA_PIN", tof_sda_pin["number"])
-        cg.add_define("GDO_TOF_SCL_PIN", tof_scl_pin["number"])
-        cg.add_build_flag("-DTOF_SENSOR")
     if CONF_DC_OPEN_PIN in config and config[CONF_DC_OPEN_PIN]:
         cg.add_define("GDO_DC_OPEN_PIN", config[CONF_DC_OPEN_PIN]["number"])
     if CONF_DC_CLOSE_PIN in config and config[CONF_DC_CLOSE_PIN]:
@@ -96,13 +82,9 @@ async def to_code(config):
     else:
         cg.add_define("GDO_OBST_FROM_STATE", True)
 
-    # Add the library dependencies - reads version.json in the repo for the version
-    if tof_enabled:
-        cg.add_library(
-            name="VL53L1",
-            repository="https://github.com/gelidusresearch/VL53L1_ESPIDF.git",
-            version="1.1.0",
-        )
+    if CONF_TOF_DISTANCE_SENSOR in config:
+        tof_sensor = await cg.get_variable(config[CONF_TOF_DISTANCE_SENSOR])
+        cg.add(var.set_external_tof_sensor(tof_sensor))
 
     cg.add_library(
         name="GDOLIB",

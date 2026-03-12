@@ -19,27 +19,35 @@
 #include "esphome/core/application.h"
 #include "esphome/core/log.h"
 #include "esphome/core/helpers.h"
+#include <cmath>
 #include "inttypes.h"
 #include "secplus_gdo.h"
 #include "driver/gpio.h"
 #include "esp_random.h"
-#ifdef TOF_SENSOR
-#include "vehicle.h"
-#endif
 
 namespace esphome
 {
   namespace secplus_gdo
   {
 
-#ifdef TOF_SENSOR
-    uint16_t interval_count = 0;
-    uint16_t last_distance = 0;
-    std::vector<int16_t> distance_measurements(DISTANCE_ARRAY_SIZE, 0);
-    VehicleTracker vt(distance_measurements, 1000, 2);
-#endif
-
     static const char *const TAG = "secplus_gdo";
+
+    static const char *vehicle_state_to_string(GDOComponent::VehiclePresenceState state) {
+      switch (state) {
+        case GDOComponent::VEHICLE_UNKNOWN:
+          return "UNKNOWN";
+        case GDOComponent::VEHICLE_PARKED:
+          return "PARKED";
+        case GDOComponent::VEHICLE_ARRIVING:
+          return "ARRIVING";
+        case GDOComponent::VEHICLE_LEAVING:
+          return "LEAVING";
+        case GDOComponent::VEHICLE_AWAY:
+          return "AWAY";
+        default:
+          return "INVALID";
+      }
+    }
 
     // Generate a random client_id in the valid Security+ format (0xXXX539)
     // Valid range: 0x539 to 0x7ff539 (max per __init__.py is 0x7ff666)
@@ -345,22 +353,6 @@ namespace esphome
         // Process duration directly to avoid defer operation crashes
         gdo->set_close_duration(status->close_ms);
         break;
-#ifdef TOF_SENSOR
-      case GDO_CB_EVENT_TOF_TIMER:
-      {
-        uint16_t distance = vt.get_tof_distance();
-        uint16_t threshold = gdo->get_vehicle_parked_threshold();
-        uint16_t variance =  gdo->get_vehicle_parked_threshold_variance();
-        vt.update_measurements(distance);
-        vt.process_vehicle_state(threshold, variance, VEHICLE_SENCE_TIME, gdo);
-        if (distance < gdo->last_distance - 1 || distance > gdo->last_distance + 1)
-        {
-          gdo->set_tof_distance(distance);
-        }
-        gdo->last_distance = distance;
-      }
-      break;
-#endif
       default:
         ESP_LOGI(TAG, "Unknown event: %d", event);
         break;
@@ -455,9 +447,6 @@ namespace esphome
         }
       }
 
-#ifdef TOF_SENSOR
-      gdo_set_tof_timer(100000, true);
-#endif
       ESP_LOGI(TAG, "Calling gdo_init() with UART%d TX:%d RX:%d",
                gdo_conf.uart_num, gdo_conf.uart_tx_pin, gdo_conf.uart_rx_pin);
       gdo_init(&gdo_conf);
@@ -531,10 +520,12 @@ namespace esphome
         gdo_set_close_duration(close_ms);
       }
 
-#ifdef TOF_SENSOR
-      vt.setup_tof_sensor(gpio_num_t(GDO_TOF_SDA_PIN), gpio_num_t(GDO_TOF_SCL_PIN), 400000);
-      delay(100);
-#endif
+      if (this->external_tof_sensor_ != nullptr) {
+        this->external_tof_sensor_->add_on_state_callback([this](float state) {
+          this->handle_external_tof_distance_(state);
+        });
+        ESP_LOGI(TAG, "External ToF distance sensor linked to secplus_gdo");
+      }
 
       if (this->start_gdo_)
       {
@@ -581,6 +572,80 @@ namespace esphome
      void GDOComponent::dump_config()
     {
       ESP_LOGCONFIG(TAG, "Setting up secplus GDO ...");
+    }
+
+    void GDOComponent::publish_vehicle_state_(VehiclePresenceState state) {
+      this->set_vehicle_parked(state == VEHICLE_PARKED);
+      this->set_vehicle_arriving(state == VEHICLE_ARRIVING);
+      this->set_vehicle_leaving(state == VEHICLE_LEAVING);
+    }
+
+    void GDOComponent::handle_external_tof_distance_(float distance_value) {
+      if (!std::isfinite(distance_value) || distance_value <= 0.0f) {
+        ESP_LOGV(TAG, "ToF external value ignored: %.3f", distance_value);
+        return;
+      }
+
+      const uint32_t now = millis();
+      if (this->vehicle_state_last_change_ms_ == 0) {
+        this->vehicle_state_last_change_ms_ = now - VEHICLE_STATE_WINDOW_MS;
+      }
+      if ((now - this->vehicle_state_last_change_ms_) < VEHICLE_STATE_WINDOW_MS) {
+        return;
+      }
+
+      const bool input_in_cm = distance_value > 20.0f;
+      const uint16_t distance_cm = static_cast<uint16_t>(input_in_cm ? distance_value : (distance_value * 100.0f));
+      const uint16_t threshold = this->get_vehicle_parked_threshold();
+      const uint16_t variance = this->get_vehicle_parked_threshold_variance();
+      const bool within_threshold = std::abs(static_cast<int32_t>(distance_cm) - static_cast<int32_t>(threshold)) <= variance;
+
+      ESP_LOGD(TAG,
+               "ToF sample=%0.3f (%s), normalized=%u cm, threshold=%u±%u, within=%s",
+               distance_value,
+               input_in_cm ? "cm" : "m",
+               distance_cm,
+               threshold,
+               variance,
+               within_threshold ? "true" : "false");
+
+      VehiclePresenceState next_state = this->vehicle_presence_state_;
+      switch (this->vehicle_presence_state_) {
+        case VEHICLE_UNKNOWN:
+          next_state = within_threshold ? VEHICLE_PARKED : VEHICLE_AWAY;
+          break;
+        case VEHICLE_PARKED:
+          if (!within_threshold) next_state = VEHICLE_LEAVING;
+          break;
+        case VEHICLE_AWAY:
+          if (within_threshold) next_state = VEHICLE_ARRIVING;
+          break;
+        case VEHICLE_ARRIVING:
+          next_state = within_threshold ? VEHICLE_PARKED : VEHICLE_LEAVING;
+          break;
+        case VEHICLE_LEAVING:
+          if (!within_threshold) next_state = VEHICLE_AWAY;
+          break;
+      }
+
+      if (next_state != this->vehicle_presence_state_) {
+        ESP_LOGI(TAG,
+                 "Vehicle state %s -> %s (distance=%u cm, threshold=%u±%u, within=%s)",
+                 vehicle_state_to_string(this->vehicle_presence_state_),
+                 vehicle_state_to_string(next_state),
+                 distance_cm,
+                 threshold,
+                 variance,
+                 within_threshold ? "true" : "false");
+        this->vehicle_presence_state_ = next_state;
+        this->vehicle_state_last_change_ms_ = now;
+        this->publish_vehicle_state_(next_state);
+      }
+
+      if (distance_cm < this->last_distance - 1 || distance_cm > this->last_distance + 1) {
+        this->set_tof_distance(distance_cm);
+      }
+      this->last_distance = distance_cm;
     }
 
   } // namespace secplus_gdo
