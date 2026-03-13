@@ -61,7 +61,7 @@ public:
     if (!loaded_from_nvs) {
       // Set appropriate default values based on the component type
       if (obj_id.find("min_command_interval") != std::string::npos) {
-        value = 500;  // Default 500ms for min command interval
+        value = 50;  // Default 50ms for min command interval
         ESP_LOGI("GDONumber", "No stored min_command_interval, using default: %.1f", value);
       } else if (obj_id.find("rolling_code") != std::string::npos) {
         value = 100;  // Default rolling code for Security+ V2 protocol compliance
