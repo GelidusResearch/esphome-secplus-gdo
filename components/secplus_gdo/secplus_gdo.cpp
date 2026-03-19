@@ -650,31 +650,3 @@ namespace esphome
 
   } // namespace secplus_gdo
 } // namespace esphome
-
-// Need to wrap the panic handler to disable the GDO TX pin and pull the output
-// high to prevent spuriously triggering the GDO to open when the ESP32 panics.
-extern "C"
-{
-#include "esp_rom_gpio.h"
-#include "soc/gpio_reg.h"
-
-  void __real_esp_panic_handler(void *);
-  void __wrap_esp_panic_handler(void *info)
-  {
-    esp_rom_printf("PANIC: DISABLING GDO UART TX PIN!\n");
-
-    // Disable the UART TX pin and set it as input
-    // This prevents spurious signals during panic that could trigger the garage door
-    esp_rom_gpio_pad_select_gpio(GDO_UART_TX_PIN);
-    esp_rom_gpio_pad_set_drv(GDO_UART_TX_PIN, 0);
-
-    // Disable output (set as input)
-    REG_WRITE(GPIO_ENABLE_W1TC_REG, (1 << GDO_UART_TX_PIN));
-
-    // Set pin low using output register (even though it's input, this sets the internal state)
-    REG_WRITE(GPIO_OUT_W1TC_REG, (1 << GDO_UART_TX_PIN));
-
-    // Call the original panic handler
-    __real_esp_panic_handler(info);
-  }
-} // extern "C"
