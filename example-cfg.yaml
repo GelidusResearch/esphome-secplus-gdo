@@ -2,16 +2,23 @@ external_components:
   - source: github://gelidusresearch/esphome-secplus-gdo
     components: [ secplus_gdo ]
     refresh: 0s
+# ToF Sensor
+#  - source: github://GelidusResearch/ToF
+#    components: [vl53l1x]
+#    refresh: 0s
 
 substitutions:
   id_prefix: grgdo1
   friendly_name: "GRGDO1"
   uart_tx_pin: GPIO22           # J4 Pin 1 or 3 Red CTRL
   uart_rx_pin: GPIO21           # J4 Pin 1 or 3 Red CTRL
-  input_obst_pin: GPIO23        # J4 Pin 4 Grey OBST - not required with secplus_gdo
-  dry_contact_open_pin: GPIO17  # J4 Pin 6 Green
+  input_obst_pin: GPIO23        # J4 Pin 4 Grey OBST - Hardware based obstruction input option
+  dry_contact_open_pin: GPIO18  # J4 Pin 6 Green
   dry_contact_close_pin: GPIO19 # J4 Pin 7 Blue
-  dry_contact_light_pin: GPIO18 # J4 Pin 8 Orange
+  dry_contact_light_pin: GPIO17 # J4 Pin 8 Orange
+  dht22_pin: GPIO27             # V2 or older AUX2=GPIO27 AUX1=GPIO26 V1=GPIO3
+  tof_sda_pin: GPIO26           # v1 board=GPIO3 v2(USB-C) board=GPIO26
+  tof_scl_pin: GPIO25           # v1 board=GPIO1 v2(USB-C) board=GPIO25
   garage_door_cover_name: Garage Door
   garage_light_name: Garage Light
   garage_openings_name: Garage Openings
@@ -26,61 +33,73 @@ esp32:
   board: esp32dev
   framework:
     type: esp-idf
-
-logger:
-  baud_rate: 921600
-  level: DEBUG
-
-# Enable Home Assistant API
-api:
-  encryption:
-    key: "PUT YOUR KEY HERE"
-
-ota:
-  - platform: esphome
-
+    version: recommended
 
 esphome:
-  name:  ${id_prefix}
+  name: ${id_prefix}
   friendly_name: ${friendly_name}
+  #project:
+  #  name: gelidusresearch.garage-door-gdo-v2 #Required if using homebridge-ratgdo
+  #  version: "1.0"
   comment: "ESP32: Garage Door Opener"
   platformio_options:
     build_flags:
       - -Wl,--wrap=esp_panic_handler
 
 wifi:
+  power_save_mode: none
   on_connect:
     lambda: id(${id_prefix}).start_gdo();
   ssid: !secret wifi_ssid
   password: !secret wifi_password
 
   ap:
-    ssid: "grgdo1"
+    ssid: ${friendly_name}
     password: ""
-    ap_timeout: 15s
+    ap_timeout: 10s
 
 captive_portal:
 
+improv_serial:
+
+logger:
+  baud_rate: 115200 # Set to 0 for GRGDO1 v1.0 hardware with the VL53L1X sensor
+
+api:
+
+ota:
+  - platform: esphome
+  - platform: web_server
+
 web_server:
+  version: 3
 
 status_led:
   pin: GPIO4
 
 secplus_gdo:
-  id:  ${id_prefix}
+  id: ${id_prefix}
   input_gdo_pin: ${uart_rx_pin}
   output_gdo_pin: ${uart_tx_pin}
+  #input_obst_pin: ${input_obst_pin} # Used to enable physical pin obstruction sensing otherwise usex secplus data
+
+#i2c:
+#  id: bus_a
+#  sda: ${tof_sda_pin}
+#  scl: ${tof_scl_pin}
+#  scan: true
+#  frequency: 400kHz
 
 light:
   - platform: secplus_gdo
     name: Garage Door Light
-    secplus_gdo_id: grgdo
+    secplus_gdo_id: ${id_prefix}
     id: gdo_light
 
 cover:
   - platform: secplus_gdo
     name: Garage Door
-    secplus_gdo_id: grgdo
+    secplus_gdo_id: ${id_prefix}
     id: gdo_door
 
 text_sensor:
@@ -109,38 +128,46 @@ sensor:
     entity_category: "diagnostic"
     device_class: ""
 
-# Vehicle ToF Sensor - Required when TOF_I2C_PINS defined
-  # - platform: secplus_gdo
-  #   secplus_gdo_id: ${id_prefix}
-  #   id: gdo_tof_distance
-  #   type: tof_distance
-#    name: "Vehicle Measured Distance" # Can be left commented to avoid cluttering the UI
-  #   unit_of_measurement: "cm"
-  #   internal: true
-  #   filters:
-  #     - heartbeat: 250ms
-  #     - throttle: 1s
+#  - platform: vl53l1x
+#    id: gdo_tof_distance
+#    name: "Vehicle Measured Distance"
+#    i2c_id: bus_a
+#    address: 0x29
+#    long_range: true
+#    timing_budget: 100ms
+#    timeout: 250ms
+#    update_interval: 1s
+#    internal: true
+#    filters:
+#      - lambda: return x * 100.0;
+#    unit_of_measurement: "cm"
 
-  # - platform: copy
-  #   source_id: gdo_tof_distance
-  #   name: Vehicle Distance Measure Filtered
-  #   filters:
-  #     - quantile:           # remove outliers that are not in the 90th percentile
-  #         window_size: 8
-  #         send_every: 1
-  #         quantile: 0.90
-  #     - heartbeat: 2s
+#  - platform: copy
+#    source_id: gdo_tof_distance
+#    name: Vehicle Distance Measure Filtered
+#    id: gdo_tof_distance_filtered
+#    filters:
+#      - quantile:           # remove outliers that are not in the 90th percentile
+#          window_size: 8
+#          send_every: 1
+#          quantile: 0.9
+#      - heartbeat: 2s
+#    unit_of_measurement: "cm"
 
-  # - platform: dht
-  #   model: DHT22
-  #   pin: GPIO3
-  #   temperature:
-  #     name: "Temperature"
-  #     accuracy_decimals: 1
-  #   humidity:
-  #     name: "Humidity"
-  #     accuracy_decimals: 1
-  #   update_interval: 60s
+# Optional Add-on DHT22
+#  - platform: dht
+#    model: DHT22
+#    pin: GPIO26 # v1 board=GPIO3, v2 board=GPIO26 (AUX1 4 Pin) or GPIO16 (AUX2 3 Pin)
+#    temperature:
+#      name: "Temperature"
+#      accuracy_decimals: 1
+#      filters:                                  # °F vs default °C
+#       - lambda: return x * (9.0/5.0) + 32.0;
+#      unit_of_measurement: "°F"
+#    humidity:
+#      name: "Humidity"
+#      accuracy_decimals: 1
+#    update_interval: 60s
 
 lock:
   - platform: secplus_gdo
@@ -179,24 +206,22 @@ binary_sensor:
     secplus_gdo_id: ${id_prefix}
     type: sync
     device_class: connectivity
-
-# Vehicle ToF Sensor = Binary state outputs
-  # - platform: secplus_gdo
-  #   secplus_gdo_id: ${id_prefix}
-  #   id: gdo_vehicle_parked
-  #   type: vehicle_parked
-  #   name: "Vehicle parked"
-  # - platform: secplus_gdo
-  #   secplus_gdo_id: ${id_prefix}
-  #   id: gdo_vehicle_arriving
-  #   type: vehicle_arriving
-  #   name: "Vehicle arriving"
-  # - platform: secplus_gdo
-  #   secplus_gdo_id: ${id_prefix}
-  #   id: gdo_vehicle_leaving
-  #   type: vehicle_leaving
-  #   name: "Vehicle leaving"
-
+# ToF Sensor
+  - platform: secplus_gdo
+    secplus_gdo_id: ${id_prefix}
+    id: gdo_vehicle_parked
+    type: vehicle_parked
+    name: "Vehicle parked"
+  - platform: secplus_gdo
+    secplus_gdo_id: ${id_prefix}
+    id: gdo_vehicle_arriving
+    type: vehicle_arriving
+    name: "Vehicle arriving"
+  - platform: secplus_gdo
+    secplus_gdo_id: ${id_prefix}
+    id: gdo_vehicle_leaving
+    type: vehicle_leaving
+    name: "Vehicle leaving"
 
   - platform: gpio
     id: "${id_prefix}_dry_contact_open"
@@ -214,9 +239,6 @@ binary_sensor:
             binary_sensor.is_off: ${id_prefix}_dry_contact_close
           then:
             - cover.open: gdo_door
-      # - lambda: |-
-      #       gdo_update_door_state(GDO_DOOR_STATE_OPEN);
-
   - platform: gpio
     id: "${id_prefix}_dry_contact_close"
     pin:
@@ -233,8 +255,6 @@ binary_sensor:
             binary_sensor.is_off: ${id_prefix}_dry_contact_open
           then:
             - cover.close: gdo_door
-      # - lambda: |-
-      #       gdo_update_door_state(GDO_DOOR_STATE_CLOSED);
   - platform: gpio
     id: "${id_prefix}_dry_contact_light"
     pin:
@@ -264,24 +284,7 @@ switch:
     type: toggle_only
     secplus_gdo_id: ${id_prefix}
     name: Toggle Only
-    restore_mode: RESTORE_DEFAULT_OFF
     icon: mdi:plus-box
-
-  # - platform: secplus_gdo
-  #   id: gdo_obst_override
-  #   type: obst_override
-  #   secplus_gdo_id: grgdo
-  #   name: Obstruction Override
-  #   restore_mode: RESTORE_DEFAULT_OFF
-  #   icon: mdi:plus-box
-
-  - platform: secplus_gdo
-    id: gdo_close_notification
-    type: close_notification
-    secplus_gdo_id: ${id_prefix}
-    name: "Close Notification"
-    restore_mode: RESTORE_DEFAULT_OFF
-    icon: "mdi:bell-alert"
 
 select:
   - platform: secplus_gdo
@@ -299,6 +302,7 @@ number:
     id: gdo_open_duration
     type: open_duration
     unit_of_measurement: "ms"
+    internal: true
 
   - platform: secplus_gdo
     name: Closing duration
@@ -324,25 +328,6 @@ number:
     type: rolling_code
     mode: box
 
-# Vehicle ToF Sensor - REQUIRED when TOF_I2C_PINS are defined
-  # - platform: secplus_gdo
-  #   name: "Vehicle Parked Threshold"
-  #   secplus_gdo_id: ${id_prefix}
-  #   entity_category: config
-  #   id: gdo_vehicle_parked_threshold
-  #   type: vehicle_parked_threshold
-  #   mode: box
-  #   unit_of_measurement: "cm"
-
-  # - platform: secplus_gdo
-  #   name: "Vehicle Parked Threshold Variance"
-  #   secplus_gdo_id: ${id_prefix}
-  #   entity_category: config
-  #   id: gdo_vehicle_parked_threshold_variance
-  #   type: vehicle_parked_threshold_variance
-  #   mode: box
-  #   unit_of_measurement: "cm"
-
   # Remidiates wall button brownouts by throttling TX activity
   # 350ms recommened on 880LM units
   - platform: secplus_gdo
@@ -354,15 +339,34 @@ number:
     mode: box
     unit_of_measurement: "ms"
 
-  # Add Time to Close (TTC) control, 0s = disabled
+  # Add Time Till Close (TTC) control, 0s = disabled
   - platform: secplus_gdo
-    name: Time to Close
+    name: Time Till Close
     secplus_gdo_id: ${id_prefix}
     entity_category: config
     id: gdo_time_to_close
     type: time_to_close
     mode: box
     unit_of_measurement: "s"
+
+# Vehicle ToF Sensor - REQUIRED for TOF sensor
+#  - platform: secplus_gdo
+#    name: "Vehicle Parked Threshold"
+#    secplus_gdo_id: ${id_prefix}
+#    entity_category: config
+#    id: gdo_vehicle_parked_threshold
+#    type: vehicle_parked_threshold
+#    mode: box
+#    unit_of_measurement: "cm"
+
+#  - platform: secplus_gdo
+#    name: "Vehicle Parked Threshold Variance"
+#    secplus_gdo_id: ${id_prefix}
+#    entity_category: config
+#    id: gdo_vehicle_parked_threshold_variance
+#    type: vehicle_parked_threshold_variance
+#    mode: box
+#    unit_of_measurement: "cm"
 
 button:
   - platform: restart
