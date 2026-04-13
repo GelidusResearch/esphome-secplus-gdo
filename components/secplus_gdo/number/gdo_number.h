@@ -27,9 +27,24 @@
 namespace esphome {
 namespace secplus_gdo {
 
+enum GDONumberType : uint8_t {
+  GDO_NUMBER_UNKNOWN,
+  GDO_NUMBER_OPEN_DURATION,
+  GDO_NUMBER_CLOSE_DURATION,
+  GDO_NUMBER_CLIENT_ID,
+  GDO_NUMBER_ROLLING_CODE,
+  GDO_NUMBER_MIN_COMMAND_INTERVAL,
+  GDO_NUMBER_TIME_TO_CLOSE,
+  GDO_NUMBER_VEHICLE_PARKED_THRESHOLD,
+  GDO_NUMBER_VEHICLE_PARKED_THRESHOLD_VARIANCE,
+};
+
 class GDONumber : public number::Number, public Component {
 public:
   void dump_config() override {}
+
+  void set_number_type(GDONumberType type) { this->number_type_ = type; }
+  GDONumberType get_number_type() const { return this->number_type_; }
 
   float get_setup_priority() const override {
     // Run before main component (which uses LATE = -100.0) so NVS values are loaded first
@@ -46,57 +61,77 @@ public:
     return client_id;
   }
 
+  bool is_duration() const {
+    return this->number_type_ == GDO_NUMBER_OPEN_DURATION || this->number_type_ == GDO_NUMBER_CLOSE_DURATION;
+  }
+
+  bool is_credential() const {
+    return this->number_type_ == GDO_NUMBER_CLIENT_ID || this->number_type_ == GDO_NUMBER_ROLLING_CODE;
+  }
+
+  const char *type_name() const {
+    switch (this->number_type_) {
+      case GDO_NUMBER_OPEN_DURATION: return "open_duration";
+      case GDO_NUMBER_CLOSE_DURATION: return "close_duration";
+      case GDO_NUMBER_CLIENT_ID: return "client_id";
+      case GDO_NUMBER_ROLLING_CODE: return "rolling_code";
+      case GDO_NUMBER_MIN_COMMAND_INTERVAL: return "min_command_interval";
+      case GDO_NUMBER_TIME_TO_CLOSE: return "time_to_close";
+      case GDO_NUMBER_VEHICLE_PARKED_THRESHOLD: return "vehicle_parked_threshold";
+      case GDO_NUMBER_VEHICLE_PARKED_THRESHOLD_VARIANCE: return "vehicle_parked_threshold_variance";
+      default: return "unknown";
+    }
+  }
+
   void setup() override {
     float value;
-    std::array<char, OBJECT_ID_MAX_LEN> obj_id_buf{};
-    std::string obj_id(this->get_object_id_to(obj_id_buf).c_str());
-    bool is_duration = (obj_id.find("open_duration") != std::string::npos ||
-                       obj_id.find("close_duration") != std::string::npos);
 
     // Load value from preferences
-    this->pref_ =
-        global_preferences->make_preference<float>(this->get_object_id_hash());
+    this->pref_ = this->make_entity_preference<float>();
     bool loaded_from_nvs = this->pref_.load(&value);
 
     if (!loaded_from_nvs) {
       // Set appropriate default values based on the component type
-      if (obj_id.find("min_command_interval") != std::string::npos) {
-        value = 50;  // Default 50ms for min command interval
-        ESP_LOGI("GDONumber", "No stored min_command_interval, using default: %.1f", value);
-      } else if (obj_id.find("rolling_code") != std::string::npos) {
-        value = 100;  // Default rolling code for Security+ V2 protocol compliance
-        ESP_LOGW("GDONumber", "NVS EMPTY: No stored rolling_code, using default: %.0f", value);
-      } else if (obj_id.find("client_id") != std::string::npos) {
-        // Don't set a default client_id - let secplus_gdo.cpp generate a random one
-        // This ensures has_state() returns false, triggering random generation
-        ESP_LOGW("GDONumber", "NVS EMPTY: No stored client_id, will be generated randomly");
-        this->last_saved_value_ = NAN;
-        return;  // Don't publish state - let random generation happen in secplus_gdo.cpp
-      } else if (is_duration) {
-        // For duration measurements, don't set an initial state if no measurement exists
-        ESP_LOGI("GDONumber", "No stored duration for %s, will remain unknown until measured", obj_id.c_str());
-        this->last_saved_value_ = 0.0f;  // Initialize with 0 for tracking
-        return;  // Don't set state or publish - let it remain unknown
-      } else {
-        value = this->traits.get_min_value();
-        ESP_LOGI("GDONumber", "No stored value for %s, using min_value: %.1f", obj_id.c_str(), value);
+      switch (this->number_type_) {
+        case GDO_NUMBER_MIN_COMMAND_INTERVAL:
+          value = 250;
+          ESP_LOGI("GDONumber", "No stored min_command_interval, using default: %.1f", value);
+          break;
+        case GDO_NUMBER_ROLLING_CODE:
+          value = 0;
+          ESP_LOGW("GDONumber", "NVS EMPTY: No stored rolling_code, using default: %.0f", value);
+          break;
+        case GDO_NUMBER_CLIENT_ID:
+          value = 1638;
+          value = this->normalize_client_id(value);
+          ESP_LOGW("GDONumber", "NVS EMPTY: No stored client_id, using normalized default: %.0f (0x%X)", value, (uint32_t)value);
+          break;
+        case GDO_NUMBER_OPEN_DURATION:
+        case GDO_NUMBER_CLOSE_DURATION:
+          ESP_LOGI("GDONumber", "No stored duration for %s, will remain unknown until measured", this->type_name());
+          this->last_saved_value_ = 0.0f;
+          return;
+        default:
+          value = this->traits.get_min_value();
+          ESP_LOGI("GDONumber", "No stored value for %s, using min_value: %.1f", this->type_name(), value);
+          break;
       }
     } else {
       // Successfully loaded from NVS - use INFO for credentials, DEBUG for others
-      if (obj_id.find("client_id") != std::string::npos) {
+      if (this->number_type_ == GDO_NUMBER_CLIENT_ID) {
         // Normalize client_id if loaded from NVS
         float original_value = value;
-        value = normalize_client_id(value);
+        value = this->normalize_client_id(value);
         if (value != original_value) {
           ESP_LOGW("GDONumber", "NVS LOADED client_id %.0f (0x%X) normalized to %.0f (0x%X)",
                    original_value, (uint32_t)original_value, value, (uint32_t)value);
         } else {
           ESP_LOGI("GDONumber", "NVS LOADED: client_id = %.0f (0x%X)", value, (uint32_t)value);
         }
-      } else if (obj_id.find("rolling_code") != std::string::npos) {
+      } else if (this->number_type_ == GDO_NUMBER_ROLLING_CODE) {
         ESP_LOGI("GDONumber", "NVS LOADED: rolling_code = %.0f", value);
       } else {
-        ESP_LOGI("GDONumber", "Loaded stored value for %s: %.1f", obj_id.c_str(), value);
+        ESP_LOGI("GDONumber", "Loaded stored value for %s: %.1f", this->type_name(), value);
       }
     }
 
@@ -126,52 +161,46 @@ public:
     // Only save to persistent storage if the value has changed significantly
     // OR if it hasn't been saved yet (last_saved_value_ is NAN means first save needed)
     // This reduces flash writes and improves responsiveness
-    std::array<char, OBJECT_ID_MAX_LEN> obj_id_buf{};
-    std::string obj_id(this->get_object_id_to(obj_id_buf).c_str());
-    bool needs_save = value_changed || std::isnan(last_saved_value_) || (fabs(value - last_saved_value_) > 0.01f);
+    bool needs_save = value_changed || std::isnan(this->last_saved_value_) || (fabs(value - this->last_saved_value_) > 0.01f);
 
     if (!needs_save) {
       return;  // Value unchanged and already saved, skip
     }
 
-    if (obj_id.find("open_duration") != std::string::npos ||
-        obj_id.find("close_duration") != std::string::npos) {
+    if (this->is_duration()) {
       // For duration measurements, only save if changed by more than 0.1s
       // and debounce saves to reduce flash writes during door movement
-      if (fabs(value - last_saved_value_) > 0.1f) {
+      if (fabs(value - this->last_saved_value_) > 0.1f) {
         this->cancel_timeout("save_duration");
         this->set_timeout("save_duration", 2000, [this, value]() {
           if (!this->pref_.save(&value)) {
-            ESP_LOGW("GDONumber", "Failed to save duration value (hash: %u): %.1f", this->get_object_id_hash(), value);
+            ESP_LOGW("GDONumber", "Failed to save value for %s: %.1f", this->type_name(), value);
           } else {
             this->last_saved_value_ = value;
-            ESP_LOGV("GDONumber", "Successfully saved duration value: %.1f", value);
+            ESP_LOGD("GDONumber", "Successfully saved value for %s: %.1f", this->type_name(), value);
           }
         });
       }
     } else {
       // For other number types, save immediately with error handling
       if (!this->pref_.save(&value)) {
-        ESP_LOGW("GDONumber", "Failed to save value for %s (hash: %u): %.1f", obj_id.c_str(), this->get_object_id_hash(), value);
+        ESP_LOGW("GDONumber", "Failed to save value for %s: %.1f", this->type_name(), value);
       } else {
         // Use INFO level for critical credentials (client_id, rolling_code) for visibility
-        if (obj_id.find("client_id") != std::string::npos || obj_id.find("rolling_code") != std::string::npos) {
-          ESP_LOGV("GDONumber", "NVS SAVED: %s = %.0f", obj_id.c_str(), value);
+        if (this->is_credential()) {
+          ESP_LOGI("GDONumber", "NVS SAVED: %s = %.0f", this->type_name(), value);
         } else {
-          ESP_LOGV("GDONumber", "Successfully saved value for %s: %.1f", obj_id.c_str(), value);
+          ESP_LOGD("GDONumber", "Successfully saved value for %s: %.1f", this->type_name(), value);
         }
       }
     }
   }
 
   void control(float value) override {
-    std::array<char, OBJECT_ID_MAX_LEN> obj_id_buf{};
-    std::string obj_id(this->get_object_id_to(obj_id_buf).c_str());
-
     // Normalize client_id if being set by user
-    if (obj_id.find("client_id") != std::string::npos) {
+    if (this->number_type_ == GDO_NUMBER_CLIENT_ID) {
       float original_value = value;
-      value = normalize_client_id(value);
+      value = this->normalize_client_id(value);
       if (value != original_value) {
         ESP_LOGW("GDONumber", "User input client_id %.0f (0x%X) normalized to %.0f (0x%X)",
                  original_value, (uint32_t)original_value, value, (uint32_t)value);
@@ -195,9 +224,10 @@ public:
     }
   }
 
-  void set_control_function(std::function<void(float)> f) { f_control = f; }
+  void set_control_function(std::function<void(float)> f) { this->f_control = f; }
 
  protected:
+  GDONumberType number_type_{GDO_NUMBER_UNKNOWN};
   ESPPreferenceObject pref_;
   std::function<void(float)> f_control{nullptr};
   float last_saved_value_{0.0f};  // Track last saved value to reduce flash writes
