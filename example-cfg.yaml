@@ -42,9 +42,6 @@ esphome:
   #  name: gelidusresearch.garage-door-gdo-v2 #Required if using homebridge-ratgdo
   #  version: "1.0"
   comment: "ESP32: Garage Door Opener"
-  platformio_options:
-    build_flags:
-      - -Wl,--wrap=esp_panic_handler
 
 wifi:
   power_save_mode: none

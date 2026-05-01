@@ -27,6 +27,7 @@ from .. import SECPLUS_GDO_CONFIG_SCHEMA, secplus_gdo_ns, CONF_SECPLUS_GDO_ID
 DEPENDENCIES = ["secplus_gdo"]
 
 GDONumber = secplus_gdo_ns.class_("GDONumber", number.Number, cg.Component)
+GDONumberType = secplus_gdo_ns.enum("GDONumberType")
 CONF_TYPE = "type"
 TYPES = {
     "open_duration": "register_open_duration",
@@ -37,6 +38,16 @@ TYPES = {
     "time_to_close": "register_time_to_close",
     "vehicle_parked_threshold": "register_vehicle_parked_threshold",
     "vehicle_parked_threshold_variance": "register_vehicle_parked_threshold_variance",
+}
+NUMBER_TYPE_ENUM = {
+    "open_duration": "GDO_NUMBER_OPEN_DURATION",
+    "close_duration": "GDO_NUMBER_CLOSE_DURATION",
+    "client_id": "GDO_NUMBER_CLIENT_ID",
+    "rolling_code": "GDO_NUMBER_ROLLING_CODE",
+    "min_command_interval": "GDO_NUMBER_MIN_COMMAND_INTERVAL",
+    "time_to_close": "GDO_NUMBER_TIME_TO_CLOSE",
+    "vehicle_parked_threshold": "GDO_NUMBER_VEHICLE_PARKED_THRESHOLD",
+    "vehicle_parked_threshold_variance": "GDO_NUMBER_VEHICLE_PARKED_THRESHOLD_VARIANCE",
 }
 
 CONFIG_SCHEMA = (
@@ -90,6 +101,7 @@ async def to_code(config):
         await number.register_number(var, config, min_value=0x0, max_value=0xffffffff, step=1)
 
     await cg.register_component(var, config)
+    cg.add(var.set_number_type(GDONumberType.enum(NUMBER_TYPE_ENUM[config[CONF_TYPE]])))
     parent = await cg.get_variable(config[CONF_SECPLUS_GDO_ID])
     fcall = str(parent) + "->" + str(TYPES[config[CONF_TYPE]])
     text = fcall + "(" + str(var) + ")"
