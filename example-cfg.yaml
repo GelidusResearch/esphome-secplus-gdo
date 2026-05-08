@@ -37,6 +37,7 @@ esp32:
 
 esphome:
   name: ${id_prefix}
+  min_version: "2026.2.0"
   friendly_name: ${friendly_name}
   #project:
   #  name: gelidusresearch.garage-door-gdo-v2 #Required if using homebridge-ratgdo
