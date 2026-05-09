@@ -17,8 +17,8 @@ substitutions:
   dry_contact_close_pin: GPIO19 # J4 Pin 7 Blue
   dry_contact_light_pin: GPIO17 # J4 Pin 8 Orange
   dht22_pin: GPIO27             # V2 or older AUX2=GPIO27 AUX1=GPIO26 V1=GPIO3
-  tof_sda_pin: GPIO26           # v1 board=GPIO3 v2(USB-C) board=GPIO26
-  tof_scl_pin: GPIO25           # v1 board=GPIO1 v2(USB-C) board=GPIO25
+  i2c_sda_pin: GPIO26           # v1 board=GPIO3 v2(USB-C) board=GPIO26
+  i2c_scl_pin: GPIO25           # v1 board=GPIO1 v2(USB-C) board=GPIO25
   garage_door_cover_name: Garage Door
   garage_light_name: Garage Light
   garage_openings_name: Garage Openings
@@ -83,8 +83,8 @@ secplus_gdo:
 
 #i2c:
 #  id: bus_a
-#  sda: ${tof_sda_pin}
-#  scl: ${tof_scl_pin}
+#  sda: ${i2c_sda_pin}
+#  scl: ${i2c_scl_pin}
 #  scan: true
 #  frequency: 400kHz
 
@@ -166,6 +166,31 @@ sensor:
 #      name: "Humidity"
 #      accuracy_decimals: 1
 #    update_interval: 60s
+
+# Optional Add-on ENS160/AHT20 (I2C)
+#  - platform: aht10
+#    address: 0x38
+#    variant: AHT20
+#    temperature:
+#      id: id_temperature_sensor
+#      name: "AHT20 Temperature"
+#    humidity:
+#      id: id_humidity_sensor
+#      name: "AHT20 Humidity"
+#    update_interval: 60s
+
+#  - platform: ens160_i2c
+#    address: 0x53
+#    eco2:
+#      name: "ENS160 eCO2"
+#    tvoc:
+#      name: "ENS160 TVOC"
+#    aqi:
+#      name: "ENS160 AQI"
+#    compensation:
+#      temperature: id_temperature_sensor
+#      humidity: id_humidity_sensor
+#    update_interval: 90s
 
 lock:
   - platform: secplus_gdo
