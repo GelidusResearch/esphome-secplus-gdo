@@ -79,14 +79,22 @@ secplus_gdo:
   id: ${id_prefix}
   input_gdo_pin: ${uart_rx_pin}
   output_gdo_pin: ${uart_tx_pin}
-  #input_obst_pin: ${input_obst_pin} # Used to enable physical pin obstruction sensing otherwise usex secplus data
+#  tof_distance_sensor: gdo_tof_distance_filtered  #post esphome 2026.1.x - required for VL53L1X ToF
+#  tof_distance_sensor: gdo_tof_distance           # Required for HC-SR04 ultrasonic distance sensor
 
+#  input_obst_pin: ${input_obst_pin} # Used to enable physical pin obstruction sensing otherwise uses secplus data
+#  tof_sda_pin: ${tof_sda_pin}       # pre esphome 2026.2.0 enable for VL53L1X
+#  tof_scl_pin: ${tof_scl_pin}       # pre esphome 2026.2.0 enable for VL53L1X
+
+
+# Required for a VL53L1X ToF
 #i2c:
 #  id: bus_a
 #  sda: ${i2c_sda_pin}
 #  scl: ${i2c_scl_pin}
 #  scan: true
-#  frequency: 400kHz
+#  frequency: 400kHz # VL53L1X supports up to 400kHz I2C, 100kHz should be set for ENS160/AHT20 sensors
+
 
 light:
   - platform: secplus_gdo
