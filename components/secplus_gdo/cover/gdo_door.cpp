@@ -194,6 +194,13 @@ void GDODoor::control(const cover::CoverCall &call) {
     return;
   }
 
+  if (this->toggle_only_) {
+    ESP_LOGW(TAG, "Position command ignored: Cover is in toggle-only mode");
+    gdo_door_toggle();
+    this->publish_state(true);
+    return;
+  }
+
   if (call.get_stop()) {
     ESP_LOGI(TAG, "Stop command received");
     if (this->pre_close_active_) {

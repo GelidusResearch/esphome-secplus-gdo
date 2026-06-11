@@ -265,23 +265,14 @@ namespace esphome
         door_position_events++;  // Count door position events
         ESP_LOGV(TAG, "Door state: %d, position: %d", status->door, status->door_position);
         {
-          // In dry contact mode door_position is -1 while the door is between
-          // sensors (no duration data yet). Clamp to [0,10000] so the float
-          // calculation never produces a value outside [0.0, 1.0].
-          // Use 0.5 for any in-transit state (OPENING/CLOSING/UNKNOWN/STOPPED)
-          // so the cover UI shows the correct intermediate state and all
-          // Open/Close/Stop buttons remain functional.
+
           int32_t raw_pos = status->door_position;
           float position;
-          if (status->protocol == GDO_PROTOCOL_DRY_CONTACT &&
-              status->door != GDO_DOOR_STATE_OPEN &&
-              status->door != GDO_DOOR_STATE_CLOSED) {
-            position = 0.5f;
-          } else {
-            if (raw_pos < 0) raw_pos = 0;
-            if (raw_pos > 10000) raw_pos = 10000;
-            position = (float)(10000 - raw_pos) / 10000.0f;
-          }
+
+          if (raw_pos < 0) raw_pos = 0;
+          if (raw_pos > 10000) raw_pos = 10000;
+          position = (float)(10000 - raw_pos) / 10000.0f;
+
 
           if (status->door > GDO_DOOR_STATE_CLOSING &&
               status->door < GDO_DOOR_STATE_OPENING)
