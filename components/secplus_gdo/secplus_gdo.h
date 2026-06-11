@@ -35,7 +35,7 @@ class GDOComponent : public Component {
 public:
 
   void setup() override;
-  void loop() override{};
+  void loop() override;
   void dump_config() override;
   void on_shutdown() override { gdo_deinit(); }
   void start_gdo() { start_gdo_ = true; }
@@ -115,6 +115,11 @@ public:
           f_vehicle_leaving(state);
       }
   }
+
+#ifdef GDO_DC_LIGHT_PIN
+  volatile bool dc_light_toggle_pending_{false};
+  uint32_t dc_light_last_toggle_ms_{0};
+#endif
 
   void register_vehicle_parked_threshold(GDONumber *num) { this->vehicle_parked_threshold_ = num; }
   void set_external_tof_sensor(sensor::Sensor *sensor) { this->external_tof_sensor_ = sensor; }

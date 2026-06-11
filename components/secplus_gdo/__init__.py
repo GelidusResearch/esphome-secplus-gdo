@@ -39,6 +39,9 @@ CONF_RF_OUTPUT_PIN = "rf_tx_pin"
 CONF_RF_INPUT_PIN = "rf_rx_pin"
 CONF_DC_OPEN_PIN = "dc_open_pin"
 CONF_DC_CLOSE_PIN = "dc_close_pin"
+CONF_DC_LIGHT_PIN = "dc_light_pin"
+CONF_DC_PULSE_WIDTH_MS = "dc_pulse_width_ms"
+CONF_DC_DEBOUNCE_MS = "dc_debounce_ms"
 CONF_TOF_DISTANCE_SENSOR = "tof_distance_sensor"
 CONF_SECPLUS_GDO_ID = "secplus_gdo_id"
 
@@ -53,6 +56,9 @@ CONFIG_SCHEMA = cv.Schema(
         cv.Optional(CONF_INPUT_OBST): cv.Any(cv.none, pins.gpio_input_pin_schema),
         cv.Optional(CONF_DC_OPEN_PIN): pins.gpio_input_pin_schema,
         cv.Optional(CONF_DC_CLOSE_PIN): pins.gpio_input_pin_schema,
+        cv.Optional(CONF_DC_LIGHT_PIN): pins.gpio_input_pin_schema,
+        cv.Optional(CONF_DC_PULSE_WIDTH_MS, default=500): cv.positive_int,
+        cv.Optional(CONF_DC_DEBOUNCE_MS, default=50): cv.positive_int,
         cv.Optional(CONF_TOF_DISTANCE_SENSOR): cv.use_id(sensor.Sensor),
     }
 ).extend(cv.COMPONENT_SCHEMA)
@@ -76,6 +82,10 @@ async def to_code(config):
         cg.add_define("GDO_DC_OPEN_PIN", config[CONF_DC_OPEN_PIN]["number"])
     if CONF_DC_CLOSE_PIN in config and config[CONF_DC_CLOSE_PIN]:
         cg.add_define("GDO_DC_CLOSE_PIN", config[CONF_DC_CLOSE_PIN]["number"])
+    if CONF_DC_LIGHT_PIN in config and config[CONF_DC_LIGHT_PIN]:
+        cg.add_define("GDO_DC_LIGHT_PIN", config[CONF_DC_LIGHT_PIN]["number"])
+    cg.add_define("GDO_DC_PULSE_WIDTH_MS", config[CONF_DC_PULSE_WIDTH_MS])
+    cg.add_define("GDO_DC_DEBOUNCE_MS", config[CONF_DC_DEBOUNCE_MS])
     if CONF_INPUT_OBST in config and config[CONF_INPUT_OBST]:
         cg.add_define("GDO_OBST_INPUT_PIN", config[CONF_INPUT_OBST]["number"])
         cg.add_define("GDO_OBST_FROM_STATE", False)

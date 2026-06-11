@@ -100,7 +100,7 @@ void GDODoor::do_action_after_warning(const cover::CoverCall &call) {
 
 void GDODoor::do_action(const cover::CoverCall &call) {
   if (call.get_stop()) {
-    ESP_LOGD(TAG, "Sending STOP action");
+    ESP_LOGI(TAG, "Sending STOP action");
     // Use timeout to defer GDOLIB call to avoid blocking web server
     this->set_timeout("stop_action", 1, []() {
       gdo_door_stop();
@@ -113,7 +113,7 @@ void GDODoor::do_action(const cover::CoverCall &call) {
     } else if (this->position == COVER_OPEN) {
       this->set_state(GDO_DOOR_STATE_CLOSING, this->position);
     }
-    ESP_LOGD(TAG, "Sending TOGGLE action");
+    ESP_LOGI(TAG, "Sending TOGGLE action");
     // Use timeout to defer GDOLIB call to avoid blocking web server
     this->set_timeout("toggle_action", 1, []() {
       gdo_door_toggle();
@@ -141,7 +141,7 @@ void GDODoor::do_action(const cover::CoverCall &call) {
           });
         }
       } else {
-        ESP_LOGD(TAG, "Sending OPEN action");
+        ESP_LOGI(TAG, "Sending OPEN action");
         // Use timeout to defer GDOLIB call to avoid blocking web server
         this->set_timeout("open_action", 1, []() {
           gdo_door_open();
@@ -168,7 +168,7 @@ void GDODoor::do_action(const cover::CoverCall &call) {
           });
         }
       } else {
-        ESP_LOGD(TAG, "Sending CLOSE action");
+        ESP_LOGI(TAG, "Sending CLOSE action");
         // Use timeout to defer GDOLIB call to avoid blocking web server
         this->set_timeout("close_action", 1, []() {
           gdo_door_close();
@@ -189,12 +189,13 @@ void GDODoor::do_action(const cover::CoverCall &call) {
 
 void GDODoor::control(const cover::CoverCall &call) {
   if (!this->synced_) {
+    ESP_LOGW(TAG, "Cover command ignored: GDO not synced");
     this->publish_state(false);
     return;
   }
 
   if (call.get_stop()) {
-    ESP_LOGD(TAG, "Stop command received");
+    ESP_LOGI(TAG, "Stop command received");
     if (this->pre_close_active_) {
       ESP_LOGD(TAG, "Canceling pending action");
       this->cancel_timeout("pre_close");
@@ -208,7 +209,7 @@ void GDODoor::control(const cover::CoverCall &call) {
   }
 
   if (call.get_toggle()) {
-    ESP_LOGD(TAG, "Toggle command received");
+    ESP_LOGI(TAG, "Toggle command received");
     if (this->position != COVER_CLOSED) {
       this->target_position_ = COVER_CLOSED;
       if (this->close_notification_) {
@@ -266,10 +267,10 @@ void GDODoor::control(const cover::CoverCall &call) {
     }
 
     if (pos == COVER_OPEN) {
-      ESP_LOGD(TAG, "Open command received");
+      ESP_LOGI(TAG, "Open command received");
       this->do_action(call);
     } else if (pos == COVER_CLOSED) {
-      ESP_LOGD(TAG, "Close command received");
+      ESP_LOGI(TAG, "Close command received");
       if (this->close_notification_) {
         this->do_action_after_warning(call);
       } else {

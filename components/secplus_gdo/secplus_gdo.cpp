@@ -32,6 +32,15 @@ namespace esphome
 
     static const char *const TAG = "secplus_gdo";
 
+#ifdef GDO_DC_LIGHT_PIN
+    // IRAM_ATTR: must not call any FreeRTOS or scheduler functions.
+    // Sets a volatile flag that loop() checks on the next iteration.
+    static void IRAM_ATTR dc_light_isr_handler_(void *arg) {
+      volatile bool *pending = static_cast<volatile bool *>(arg);
+      *pending = true;
+    }
+#endif
+
     static const char *vehicle_state_to_string(GDOComponent::VehiclePresenceState state) {
       switch (state) {
         case GDOComponent::VEHICLE_UNKNOWN:
@@ -107,6 +116,15 @@ namespace esphome
       case GDO_CB_EVENT_SYNCED:
         ESP_LOGI(TAG, "Synced: %s, protocol: %s", status->synced ? "true" : "false",
                  gdo_protocol_type_to_string(status->protocol));
+
+        // Dry contact protocol syncs immediately — no UART, no rolling code, no retries needed.
+        if (status->protocol == GDO_PROTOCOL_DRY_CONTACT) {
+          ESP_LOGI(TAG, "Dry contact protocol synced. TX pin configured as pulsed output.");
+          gdo->reset_sync_retry();
+          gdo->set_protocol_state(status->protocol);
+          gdo->set_sync_state(true);
+          break;
+        }
 
         // Add debug info for protocol detection
         if (!status->synced) {
@@ -245,10 +263,25 @@ namespace esphome
         break;
       case GDO_CB_EVENT_DOOR_POSITION:
         door_position_events++;  // Count door position events
-        ESP_LOGV(TAG, "Door state: %d, position: %d", status->door, status->door_position);  // Changed to LOGV to reduce spam
-        // Process door position directly to avoid defer operation crashes
+        ESP_LOGV(TAG, "Door state: %d, position: %d", status->door, status->door_position);
         {
-          float position = (float)(10000 - status->door_position) / 10000.0f;
+          // In dry contact mode door_position is -1 while the door is between
+          // sensors (no duration data yet). Clamp to [0,10000] so the float
+          // calculation never produces a value outside [0.0, 1.0].
+          // Use 0.5 for any in-transit state (OPENING/CLOSING/UNKNOWN/STOPPED)
+          // so the cover UI shows the correct intermediate state and all
+          // Open/Close/Stop buttons remain functional.
+          int32_t raw_pos = status->door_position;
+          float position;
+          if (status->protocol == GDO_PROTOCOL_DRY_CONTACT &&
+              status->door != GDO_DOOR_STATE_OPEN &&
+              status->door != GDO_DOOR_STATE_CLOSED) {
+            position = 0.5f;
+          } else {
+            if (raw_pos < 0) raw_pos = 0;
+            if (raw_pos > 10000) raw_pos = 10000;
+            position = (float)(10000 - raw_pos) / 10000.0f;
+          }
 
           if (status->door > GDO_DOOR_STATE_CLOSING &&
               status->door < GDO_DOOR_STATE_OPENING)
@@ -265,7 +298,6 @@ namespace esphome
           }
           else
           {
-            // Normal case - valid door state
             gdo->set_door_state((gdo_door_state_t)status->door, position);
           }
 
@@ -406,6 +438,21 @@ namespace esphome
 #else
           .rf_rx_pin = (gpio_num_t)-1,
 #endif
+#ifdef GDO_DC_OPEN_PIN
+          .dc_open_pin = (gpio_num_t)GDO_DC_OPEN_PIN,
+#else
+          .dc_open_pin = (gpio_num_t)0,
+#endif
+#ifdef GDO_DC_CLOSE_PIN
+          .dc_close_pin = (gpio_num_t)GDO_DC_CLOSE_PIN,
+#else
+          .dc_close_pin = (gpio_num_t)0,
+#endif
+          .dc_toggle_pin = (gpio_num_t)0,
+          .dc_discrete_open_pin = (gpio_num_t)0,
+          .dc_discrete_close_pin = (gpio_num_t)0,
+          .dc_debounce_ms = GDO_DC_DEBOUNCE_MS,
+          .dc_pulse_width_ms = GDO_DC_PULSE_WIDTH_MS,
       };
 
       // Log boot reason to help diagnose cold boot vs warm restart differences
@@ -449,6 +496,17 @@ namespace esphome
 
       ESP_LOGI(TAG, "Calling gdo_init() with UART%d TX:%d RX:%d",
                gdo_conf.uart_num, gdo_conf.uart_tx_pin, gdo_conf.uart_rx_pin);
+
+#if defined(GDO_DC_OPEN_PIN) || defined(GDO_DC_CLOSE_PIN)
+      // Dry contact pins are defined: force protocol before gdo_init() so the
+      // library configures the TX pin as a GPIO output rather than routing it
+      // through the UART peripheral via uart_set_pin(). If this is not done
+      // before init, gpio_set_level() calls for the relay pulse are silently
+      // ignored because the UART hardware owns the pin.
+      gdo_set_protocol(GDO_PROTOCOL_DRY_CONTACT);
+      ESP_LOGI(TAG, "Dry contact mode: GDO_PROTOCOL_DRY_CONTACT forced before init");
+#endif
+
       gdo_init(&gdo_conf);
       ESP_LOGI(TAG, "gdo_init() completed successfully");
       gdo_get_status(&this->status_);
@@ -527,11 +585,45 @@ namespace esphome
         ESP_LOGI(TAG, "External ToF distance sensor linked to secplus_gdo");
       }
 
+#ifdef GDO_DC_LIGHT_PIN
+      // Configure dry contact light toggle input: active-low, internal pull-up.
+      // Falling edge sets a volatile flag; loop() picks it up and calls gdo_light_toggle().
+      // The ISR must be IRAM_ATTR and must NOT call any FreeRTOS/scheduler functions.
+      {
+        gpio_config_t light_pin_conf = {
+            .pin_bit_mask = (1ULL << GDO_DC_LIGHT_PIN),
+            .mode = GPIO_MODE_INPUT,
+            .pull_up_en = GPIO_PULLUP_ENABLE,
+            .pull_down_en = GPIO_PULLDOWN_DISABLE,
+            .intr_type = GPIO_INTR_NEGEDGE,
+        };
+        esp_err_t err = gpio_config(&light_pin_conf);
+        if (err == ESP_OK) {
+          gpio_install_isr_service(0);  // no-op if already installed by GDOLIB
+          gpio_isr_handler_add((gpio_num_t)GDO_DC_LIGHT_PIN,
+            dc_light_isr_handler_,
+            (void *)&this->dc_light_toggle_pending_);
+          ESP_LOGI(TAG, "Dry contact light toggle pin %d configured", GDO_DC_LIGHT_PIN);
+        } else {
+          ESP_LOGE(TAG, "Failed to configure dry contact light pin %d: %d", GDO_DC_LIGHT_PIN, err);
+        }
+      }
+#endif
+
       if (this->start_gdo_)
       {
+#if defined(GDO_DC_OPEN_PIN) || defined(GDO_DC_CLOSE_PIN)
+        gdo_set_protocol(GDO_PROTOCOL_DRY_CONTACT);
+        ESP_LOGI(TAG, "Dry contact mode: re-forcing GDO_PROTOCOL_DRY_CONTACT before gdo_start()");
+#endif
         gdo_start(gdo_event_handler, this);
         ESP_LOGI(TAG, "Secplus GDO started!");
-
+#if defined(GDO_DC_OPEN_PIN) || defined(GDO_DC_CLOSE_PIN)
+        // Dry contact requires no UART sync — force synced state immediately.
+        ESP_LOGI(TAG, "Dry contact mode: forcing sync state true");
+        this->set_protocol_state(GDO_PROTOCOL_DRY_CONTACT);
+        this->set_sync_state(true);
+#endif
       }
       else
       {
@@ -539,11 +631,48 @@ namespace esphome
         this->set_interval("gdo_start", 500, [this]()
                            {
       if (this->start_gdo_) {
+#if defined(GDO_DC_OPEN_PIN) || defined(GDO_DC_CLOSE_PIN)
+        gdo_set_protocol(GDO_PROTOCOL_DRY_CONTACT);
+        ESP_LOGI(TAG, "Dry contact mode: re-forcing GDO_PROTOCOL_DRY_CONTACT before gdo_start()");
+#endif
         gdo_start(gdo_event_handler, this);
         ESP_LOGI(TAG, "Secplus GDO started!");
+#if defined(GDO_DC_OPEN_PIN) || defined(GDO_DC_CLOSE_PIN)
+        // Dry contact requires no UART sync — force synced state immediately.
+        ESP_LOGI(TAG, "Dry contact mode: forcing sync state true");
+        this->set_protocol_state(GDO_PROTOCOL_DRY_CONTACT);
+        this->set_sync_state(true);
+#endif
         this->cancel_interval("gdo_start");
       } });
       }
+    }
+
+    void GDOComponent::loop()
+    {
+#ifdef GDO_DC_LIGHT_PIN
+      if (this->dc_light_toggle_pending_) {
+        this->dc_light_toggle_pending_ = false;
+        if (!this->start_gdo_) {
+          // gdo_start() not yet called (WiFi not connected) — gdo_main_task does
+          // not exist yet, so queue_command() calls would time out. Discard.
+          ESP_LOGD(TAG, "Dry contact door toggle ignored: GDO not started yet");
+          return;
+        }
+        uint32_t now = millis();
+        if (now - this->dc_light_last_toggle_ms_ >= GDO_DC_DEBOUNCE_MS) {
+          this->dc_light_last_toggle_ms_ = now;
+          gdo_get_status(&this->status_);
+          if (this->status_.protocol == GDO_PROTOCOL_DRY_CONTACT) {
+            ESP_LOGI(TAG, "Dry contact door toggle: pulsing TX pin");
+            gdo_door_toggle();
+          } else {
+            ESP_LOGI(TAG, "Dry contact light toggle: gdo_light_toggle()");
+            gdo_light_toggle();
+          }
+        }
+      }
+#endif
     }
 
     void GDOComponent::set_sync_state(bool synced)

@@ -86,6 +86,17 @@ secplus_gdo:
 #  tof_sda_pin: ${tof_sda_pin}       # pre esphome 2026.2.0 enable for VL53L1X
 #  tof_scl_pin: ${tof_scl_pin}       # pre esphome 2026.2.0 enable for VL53L1X
 
+# Dry contact mode: uncomment the block below and set protocol select to "dry contact".
+# The output_gdo_pin (TX) is reconfigured as a pulsed GPIO output to trigger the opener relay.
+# dc_open_pin and dc_close_pin are active-low inputs (internal pull-up) reporting door state.
+# dc_light_pin is an active-low input that toggles the garage light on each contact closure.
+# All GPIO assignments are user-configurable via the substitutions block at the top.
+#  dc_open_pin: ${dry_contact_open_pin}    # J4 Pin 6 Green  - door fully-open sensor
+#  dc_close_pin: ${dry_contact_close_pin}  # J4 Pin 7 Blue   - door fully-closed sensor
+#  dc_light_pin: ${dry_contact_light_pin}  # J4 Pin 8 Orange - light toggle input
+#  dc_pulse_width_ms: 500                  # Relay pulse duration in ms (default 500)
+#  dc_debounce_ms: 50                      # Input debounce in ms (default 50)
+
 
 # Required for a VL53L1X ToF
 #i2c:
@@ -254,52 +265,56 @@ binary_sensor:
     type: vehicle_leaving
     name: "Vehicle leaving"
 
-  - platform: gpio
-    id: "${id_prefix}_dry_contact_open"
-    pin:
-      number: ${dry_contact_open_pin}  #  dry contact for opening door
-      inverted: true
-      mode:
-        input: true
-        pullup: true
-    name: "Dry contact open"
-    entity_category: diagnostic
-    on_press:
-      - if:
-          condition:
-            binary_sensor.is_off: ${id_prefix}_dry_contact_close
-          then:
-            - cover.open: gdo_door
-  - platform: gpio
-    id: "${id_prefix}_dry_contact_close"
-    pin:
-      number: ${dry_contact_close_pin}  # dry contact for closing door
-      inverted: true
-      mode:
-        input: true
-        pullup: true
-    name: "Dry contact close"
-    entity_category: diagnostic
-    on_press:
-      - if:
-          condition:
-            binary_sensor.is_off: ${id_prefix}_dry_contact_open
-          then:
-            - cover.close: gdo_door
-  - platform: gpio
-    id: "${id_prefix}_dry_contact_light"
-    pin:
-      number: ${dry_contact_light_pin}  # dry contact for triggering light
-      inverted: true
-      mode:
-        input: true
-        pullup: true
-    name: "Dry contact light"
-    entity_category: diagnostic
-    on_press:
-      then:
-        - light.toggle: gdo_light
-    disabled_by_default: false
+# NOTE: The GPIO binary sensor dry contact blocks below are the legacy YAML-only workaround.
+# When using native dry contact mode (dc_open_pin / dc_close_pin / dc_light_pin in the
+# secplus_gdo: block above), these GPIO binary sensors are NOT needed and should be removed.
+# They are kept here commented out for reference only.
+#
+#  - platform: gpio
+#    id: "${id_prefix}_dry_contact_open"
+#    pin:
+#      number: ${dry_contact_open_pin}
+#      inverted: true
+#      mode:
+#        input: true
+#        pullup: true
+#    name: "Dry contact open"
+#    entity_category: diagnostic
+#    on_press:
+#      - if:
+#          condition:
+#            binary_sensor.is_off: ${id_prefix}_dry_contact_close
+#          then:
+#            - cover.open: gdo_door
+#  - platform: gpio
+#    id: "${id_prefix}_dry_contact_close"
+#    pin:
+#      number: ${dry_contact_close_pin}
+#      inverted: true
+#      mode:
+#        input: true
+#        pullup: true
+#    name: "Dry contact close"
+#    entity_category: diagnostic
+#    on_press:
+#      - if:
+#          condition:
+#            binary_sensor.is_off: ${id_prefix}_dry_contact_open
+#          then:
+#            - cover.close: gdo_door
+#  - platform: gpio
+#    id: "${id_prefix}_dry_contact_light"
+#    pin:
+#      number: ${dry_contact_light_pin}
+#      inverted: true
+#      mode:
+#        input: true
+#        pullup: true
+#    name: "Dry contact light"
+#    entity_category: diagnostic
+#    on_press:
+#      then:
+#        - light.toggle: gdo_light
 
 switch:
   - platform: secplus_gdo
