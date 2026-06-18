@@ -17,3 +17,5 @@ At Gelidus we are seeking to reverse engineer the MyQ smart controllers further 
 1. [GDOLIB](https://github.com/gelidusresearch/gdolib) Always required.
 2. [VL53L1](https://github.com/GelidusResearch/VL53L1_ESPIDF) If using the ToF Sensor
 3. Current release requires ESPHome version 2026.2.0
+
+[ESPHome Setup Guide](https://github.com/GelidusResearch/device.docs/blob/main/gdo.guides/Secplus-GDO-Setup-Guide.md)
