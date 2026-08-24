@@ -65,7 +65,7 @@ namespace esphome
       uint32_t random_prefix = esp_random() % 0x800;
       // Combine with mandatory 0x539 suffix
       uint32_t client_id = (random_prefix << 12) | 0x539;
-      ESP_LOGI(TAG, "Generated random client_id: 0x%X (prefix: 0x%X)", client_id, random_prefix);
+      ESP_LOGI(TAG, "Generated random client_id: 0x%" PRIX32 " (prefix: 0x%" PRIX32 ")", client_id, random_prefix);
       return client_id;
     }
 
@@ -516,18 +516,18 @@ namespace esphome
 
         if (has_stored_state) {
           client_id_to_use = (uint32_t)this->client_id_->state;
-          ESP_LOGI(TAG, "Client ID loaded from NVS: 0x%X (%" PRIu32 ")", client_id_to_use, client_id_to_use);
+          ESP_LOGI(TAG, "Client ID loaded from NVS: 0x%" PRIX32 " (%" PRIu32 ")", client_id_to_use, client_id_to_use);
         } else {
           // No stored state in NVS - generate a random client_id
           client_id_to_use = generate_random_client_id();
-          ESP_LOGW(TAG, "No stored client_id in NVS, generated random: 0x%X (%" PRIu32 ")", client_id_to_use, client_id_to_use);
+          ESP_LOGW(TAG, "No stored client_id in NVS, generated random: 0x%" PRIX32 " (%" PRIu32 ")", client_id_to_use, client_id_to_use);
           // Save the generated random client_id to NVS for persistence
           if (this->client_id_) {
             this->client_id_->publish_state(client_id_to_use);
           }
         }
 
-        ESP_LOGI(TAG, "Calling gdo_set_client_id(0x%X / %" PRIu32 ")", client_id_to_use, client_id_to_use);
+        ESP_LOGI(TAG, "Calling gdo_set_client_id(0x%" PRIX32 " / %" PRIu32 ")", client_id_to_use, client_id_to_use);
         gdo_set_client_id(client_id_to_use);
       }
 
