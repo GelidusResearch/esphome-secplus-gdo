@@ -43,15 +43,17 @@ void GDODoor::set_state(gdo_door_state_t state, float position) {
     break;
   case GDO_DOOR_STATE_OPENING:
     this->current_operation = COVER_OPERATION_OPENING;
-    this->position = position;
+    this->position = (position > 0.0f && position < 1.0f) ? position : 0.5f;
     break;
   case GDO_DOOR_STATE_CLOSING:
     this->current_operation = COVER_OPERATION_CLOSING;
-    this->position = position;
+    this->position = (position > 0.0f && position < 1.0f) ? position : 0.5f;
     break;
   case GDO_DOOR_STATE_STOPPED:
     this->prev_operation = this->current_operation;
-    // falls through
+    this->current_operation = COVER_OPERATION_IDLE;
+    this->position = (position > 0.0f && position < 1.0f) ? position : 0.5f;
+    break;
   case GDO_DOOR_STATE_MAX:
   default:
     this->current_operation = COVER_OPERATION_IDLE;
@@ -232,21 +234,16 @@ void GDODoor::control(const cover::CoverCall &call) {
 
   if (call.get_position().has_value()) {
     auto pos = *call.get_position();
-    if (this->position == pos) {
+    // Use confirmed hardware state for endpoint checks; time-based position
+    // can be unreliable when durations are uncalibrated.
+    if ((pos == COVER_OPEN && this->state_ == GDO_DOOR_STATE_OPEN) ||
+        (pos == COVER_CLOSED && this->state_ == GDO_DOOR_STATE_CLOSED)) {
       ESP_LOGD(TAG, "Door is already %s",
                pos == COVER_OPEN ? "open" : "closed");
       this->publish_state(false);
       return;
     }
-
-    if ((this->current_operation == COVER_OPERATION_OPENING &&
-         pos > this->position) ||
-        (this->current_operation == COVER_OPERATION_CLOSING &&
-         pos < this->position)) {
-      ESP_LOGD(
-          TAG,
-          "Door is already moving in target direction; target position: %.0f%%",
-          *this->target_position_);
+    if (pos != COVER_OPEN && pos != COVER_CLOSED && this->position == pos) {
       this->publish_state(false);
       return;
     }
