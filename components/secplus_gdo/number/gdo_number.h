@@ -21,6 +21,7 @@
 #include "esphome/core/component.h"
 #include "esphome/core/preferences.h"
 #include <array>
+#include <cinttypes>
 #include <cmath>
 
 
@@ -104,7 +105,7 @@ public:
         case GDO_NUMBER_CLIENT_ID:
           value = 1638;
           value = this->normalize_client_id(value);
-          ESP_LOGW("GDONumber", "NVS EMPTY: No stored client_id, using normalized default: %.0f (0x%X)", value, (uint32_t)value);
+          ESP_LOGW("GDONumber", "NVS EMPTY: No stored client_id, using normalized default: %.0f (0x%" PRIX32 ")", value, (uint32_t)value);
           break;
         case GDO_NUMBER_OPEN_DURATION:
         case GDO_NUMBER_CLOSE_DURATION:
@@ -123,10 +124,10 @@ public:
         float original_value = value;
         value = this->normalize_client_id(value);
         if (value != original_value) {
-          ESP_LOGW("GDONumber", "NVS LOADED client_id %.0f (0x%X) normalized to %.0f (0x%X)",
+          ESP_LOGW("GDONumber", "NVS LOADED client_id %.0f (0x%" PRIX32 ") normalized to %.0f (0x%" PRIX32 ")",
                    original_value, (uint32_t)original_value, value, (uint32_t)value);
         } else {
-          ESP_LOGI("GDONumber", "NVS LOADED: client_id = %.0f (0x%X)", value, (uint32_t)value);
+          ESP_LOGI("GDONumber", "NVS LOADED: client_id = %.0f (0x%" PRIX32 ")", value, (uint32_t)value);
         }
       } else if (this->number_type_ == GDO_NUMBER_ROLLING_CODE) {
         ESP_LOGI("GDONumber", "NVS LOADED: rolling_code = %.0f", value);
@@ -202,7 +203,7 @@ public:
       float original_value = value;
       value = this->normalize_client_id(value);
       if (value != original_value) {
-        ESP_LOGW("GDONumber", "User input client_id %.0f (0x%X) normalized to %.0f (0x%X)",
+        ESP_LOGW("GDONumber", "User input client_id %.0f (0x%" PRIX32 ") normalized to %.0f (0x%" PRIX32 ")",
                  original_value, (uint32_t)original_value, value, (uint32_t)value);
       }
     }
