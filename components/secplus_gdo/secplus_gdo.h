@@ -121,6 +121,11 @@ public:
   uint32_t dc_light_last_toggle_ms_{0};
 #endif
 
+  // Expose the raw (debounced) dry contact sensor pin states independent of
+  // the derived door state, so they can be surfaced as binary sensors.
+  void register_dc_open_pin_state(std::function<void(bool)> f) { f_dc_open_pin_ = f; }
+  void register_dc_close_pin_state(std::function<void(bool)> f) { f_dc_close_pin_ = f; }
+
   void register_vehicle_parked_threshold(GDONumber *num) { this->vehicle_parked_threshold_ = num; }
   void set_external_tof_sensor(sensor::Sensor *sensor) { this->external_tof_sensor_ = sensor; }
 
@@ -302,6 +307,14 @@ protected:
   std::function<void(bool)> f_button{nullptr};
   std::function<void(bool)> f_motor{nullptr};
   std::function<void(bool)> f_sync{nullptr};
+  std::function<void(bool)> f_dc_open_pin_{nullptr};
+  std::function<void(bool)> f_dc_close_pin_{nullptr};
+  bool dc_open_pin_state_{false};
+  bool dc_close_pin_state_{false};
+  bool dc_open_pin_state_valid_{false};
+  bool dc_close_pin_state_valid_{false};
+  uint32_t dc_open_pin_last_change_ms_{0};
+  uint32_t dc_close_pin_last_change_ms_{0};
 
   GDODoor *door_{nullptr};
   GDOLight *light_{nullptr};

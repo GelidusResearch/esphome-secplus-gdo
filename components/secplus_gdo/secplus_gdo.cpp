@@ -506,7 +506,6 @@ namespace esphome
       // GDOLIB will auto-detect the protocol during sync
       // The protocol select is only for manual override by the user
       // The detected protocol will be saved to NVS when sync succeeds
-
       // Initialize client ID and rolling code from stored values (if available)
       // This is essential for first-run and after reboot functionality
       ESP_LOGI(TAG, "Loading credentials from NVS...");
@@ -641,6 +640,40 @@ namespace esphome
 
     void GDOComponent::loop()
     {
+#if defined(GDO_DC_OPEN_PIN)
+      {
+        // Pins are active-low; gdolib already configures them as GPIO inputs,
+        // so gpio_get_level() can be read directly without extra gpio_config().
+        bool active = gpio_get_level((gpio_num_t)GDO_DC_OPEN_PIN) == 0;
+        uint32_t now = millis();
+        if (!this->dc_open_pin_state_valid_ || active != this->dc_open_pin_state_) {
+          if (now - this->dc_open_pin_last_change_ms_ >= GDO_DC_DEBOUNCE_MS || !this->dc_open_pin_state_valid_) {
+            this->dc_open_pin_state_ = active;
+            this->dc_open_pin_state_valid_ = true;
+            this->dc_open_pin_last_change_ms_ = now;
+            if (this->f_dc_open_pin_) {
+              this->f_dc_open_pin_(active);
+            }
+          }
+        }
+      }
+#endif
+#if defined(GDO_DC_CLOSE_PIN)
+      {
+        bool active = gpio_get_level((gpio_num_t)GDO_DC_CLOSE_PIN) == 0;
+        uint32_t now = millis();
+        if (!this->dc_close_pin_state_valid_ || active != this->dc_close_pin_state_) {
+          if (now - this->dc_close_pin_last_change_ms_ >= GDO_DC_DEBOUNCE_MS || !this->dc_close_pin_state_valid_) {
+            this->dc_close_pin_state_ = active;
+            this->dc_close_pin_state_valid_ = true;
+            this->dc_close_pin_last_change_ms_ = now;
+            if (this->f_dc_close_pin_) {
+              this->f_dc_close_pin_(active);
+            }
+          }
+        }
+      }
+#endif
 #ifdef GDO_DC_LIGHT_PIN
       if (this->dc_light_toggle_pending_) {
         this->dc_light_toggle_pending_ = false;
