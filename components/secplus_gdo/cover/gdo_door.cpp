@@ -78,7 +78,7 @@ void GDODoor::do_action_after_warning(const cover::CoverCall &call) {
   }
 
   // Set TTC to 1 second - this triggers the 10-second warning
-  esp_err_t err = gdo_set_time_to_close(1);
+  esp_err_t err = gdo_set_time_to_close(2);
   if (err != ESP_OK) {
     ESP_LOGW(TAG, "Failed to set TTC for warning, closing without warning");
     this->do_action(call);
