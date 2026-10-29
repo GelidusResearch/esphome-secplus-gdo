@@ -70,7 +70,7 @@ void GDODoor::do_action_after_warning(const cover::CoverCall &call) {
   uint16_t saved_ttc = 0;
   if (this->parent_) {
     saved_ttc = this->parent_->get_time_to_close();
-    ESP_LOGI(TAG, "Close notification: Saved TTC=%d, setting to 1 for warning", saved_ttc);
+    ESP_LOGI(TAG, "Close notification active, saved current TTC=%d:", saved_ttc);
   }
 
   if (this->pre_close_start_trigger) {
@@ -78,7 +78,7 @@ void GDODoor::do_action_after_warning(const cover::CoverCall &call) {
   }
 
   // Set TTC to 1 second - this triggers the 10-second warning
-  esp_err_t err = gdo_set_time_to_close(2);
+  esp_err_t err = gdo_set_time_to_close(1);
   if (err != ESP_OK) {
     ESP_LOGW(TAG, "Failed to set TTC for warning, closing without warning");
     this->do_action(call);
@@ -93,11 +93,13 @@ void GDODoor::do_action_after_warning(const cover::CoverCall &call) {
     // Restore original TTC after door starts closing
     ESP_LOGI(TAG, "Restoring TTC to %d", saved_ttc);
     gdo_set_time_to_close(saved_ttc);
+    if (saved_ttc == 0) { gdo_cancel_ttc(); }
 
     if (this->pre_close_end_trigger) {
       this->pre_close_end_trigger->trigger();
     }
   });
+  gdo_get_ttc_state();
 }
 
 void GDODoor::do_action(const cover::CoverCall &call) {

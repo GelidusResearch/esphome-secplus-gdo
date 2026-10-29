@@ -19,6 +19,7 @@
 #include "include/gdo.h"
 #include "cover/gdo_door.h"
 #include "esphome/components/sensor/sensor.h"
+#include "esphome/components/text_sensor/text_sensor.h"
 #include "esphome/core/component.h"
 #include "esphome/core/defines.h"
 #include "light/gdo_light.h"
@@ -96,6 +97,16 @@ public:
       f_tof_distance(tof_distance);
     }
   }
+
+  void register_firmware(std::function<void(std::string)> f) { f_firmware = f; }
+  void set_firmware(uint8_t major, uint8_t minor) {
+    if (f_firmware) {
+      char firmware_str[16];
+      snprintf(firmware_str, sizeof(firmware_str), "v%u.%u", major, minor);
+      f_firmware(std::string(firmware_str));
+    }
+  }
+
   void register_vehicle_parked(std::function<void(bool)> f) { f_vehicle_parked = f; }
   void register_vehicle_arriving(std::function<void(bool)> f) { f_vehicle_arriving = f; }
   void register_vehicle_leaving(std::function<void(bool)> f) { f_vehicle_leaving = f; }
@@ -238,6 +249,7 @@ public:
   }
 
   void register_toggle_only(GDOSwitch *sw) { this->toggle_only_switch_ = sw; }
+  //void register_toggle_ttc(GDOSwitch *sw) { this->toggle_ttc_switch_ = sw; }
   void register_obst_override(GDOSwitch *sw) { this->obst_override_switch_ = sw; }
   void register_close_notification(GDOSwitch *sw) { this->close_notification_switch_ = sw; }
   void set_sync_state(bool synced);
@@ -329,6 +341,7 @@ protected:
   GDONumber *vehicle_parked_threshold_{nullptr};
   GDONumber *vehicle_parked_threshold_variance_{nullptr};
   std::function<void(uint16_t)> f_tof_distance{nullptr};
+  std::function<void(std::string)> f_firmware{nullptr};
   std::function<void(bool)> f_vehicle_parked{nullptr};
   std::function<void(bool)> f_vehicle_leaving{nullptr};
   std::function<void(bool)> f_vehicle_arriving{nullptr};

@@ -251,6 +251,7 @@ namespace esphome
 
           // On sync success cancel the timeout
           gdo->cancel_operation("sync_timeout");
+          if ((status->protocol) == GDO_PROTOCOL_SEC_PLUS_V2) gdo_get_firmware();
           ESP_LOGI(TAG, "Sync successful, TX pin in normal operation mode");
         }
         gdo->set_sync_state(status->synced);
@@ -337,19 +338,24 @@ namespace esphome
       case GDO_CB_EVENT_OPENINGS:
         ESP_LOGI(TAG, "Openings: %d", status->openings);
         gdo->set_openings(status->openings);
-
+        break;
+      case GDO_CB_EVENT_HOLD_TTC:
+        ESP_LOGI(TAG, "TTC Held, auto close on hold.");
+        break;
+      case GDO_CB_EVENT_REL_TTC:
+        ESP_LOGI(TAG, "TTC Released, auto close after %d seconds when opened.", status->ttc_seconds);
         break;
       case GDO_CB_EVENT_SET_TTC:
-        ESP_LOGI(TAG, "Set Time to close: %d", status->ttc_seconds);
+        ESP_LOGI(TAG, "Set TTC: %d", status->ttc_seconds);
         break;
       case GDO_CB_EVENT_CANCEL_TTC:
-        ESP_LOGI(TAG, "Cancel Time to close: %d", status->ttc_seconds);
+        ESP_LOGI(TAG, "Current TTC is: %d", status->ttc_seconds);
         break;
       case GDO_CB_EVENT_UPDATE_TTC:
         ESP_LOGI(TAG, "Update Time to close: %d", status->ttc_seconds);
         if (status->ttc_seconds == 0) {
           // Use public defer method to avoid blocking in event handler
-          gdo->defer_operation("ttc_close", 10, []() {
+          gdo->defer_operation("ttc_close", 11, []() {
             gdo_door_close();
           });
         }
@@ -375,6 +381,14 @@ namespace esphome
         ESP_LOGV(TAG, "Close duration: %d", status->close_ms);  // Changed to LOGV to reduce spam even more
         // Process duration directly to avoid defer operation crashes
         gdo->set_close_duration(status->close_ms);
+        break;
+      case GDO_CB_EVENT_AUTO_LIGHT_MODE:
+        ESP_LOGI(TAG, "Motion Sensor Light Mode: %s", status->auto_light_enabled ? "enabled" : "disabled");
+        break;
+      case GDO_CB_EVENT_FIRMWARE:
+        ESP_LOGI(TAG,
+                 "Door Opener Firmware Ver: %d.%d", status->fw_major, status->fw_minor);
+        gdo->set_firmware(status->fw_major, status->fw_minor);
         break;
       default:
         ESP_LOGI(TAG, "Unknown event: %d", event);
