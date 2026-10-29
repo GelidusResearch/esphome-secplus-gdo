@@ -96,8 +96,8 @@ async def to_code(config):
         tof_sensor = await cg.get_variable(config[CONF_TOF_DISTANCE_SENSOR])
         cg.add(var.set_external_tof_sensor(tof_sensor))
 
-    #cg.add_library(
-    #    name="GDOLIB",
-    #    repository="https://github.com/gelidusresearch/gdolib.git",
-    #    version="1.2.10",
-    #)
+    cg.add_library(
+        name="GDOLIB",
+        repository="https://github.com/gelidusresearch/gdolib.git#v1.2.10",
+        version="1.2.10",
+    )

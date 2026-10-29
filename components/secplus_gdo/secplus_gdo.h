@@ -22,6 +22,8 @@
 #include "esphome/components/text_sensor/text_sensor.h"
 #include "esphome/core/component.h"
 #include "esphome/core/defines.h"
+#include "esphome/core/event_pool.h"
+#include "esphome/core/lock_free_queue.h"
 #include "light/gdo_light.h"
 #include "lock/gdo_lock.h"
 #include "number/gdo_number.h"
@@ -31,6 +33,17 @@
 
 namespace esphome {
 namespace secplus_gdo {
+
+// Snapshot of a gdolib event, queued from gdo_main_task (small 4KB stack) and
+// drained/processed on GDOComponent::loop() (the much larger main loop task
+// stack). Keeps the gdolib callback itself tiny to avoid stack overflow on
+// gdo_main_task when handling deeply-nested event processing/logging.
+struct GdoQueueEvent {
+  gdo_status_t status;
+  gdo_cb_event_t event;
+  // Required by EventPool<T, SIZE>; no dynamically allocated members to free.
+  void release() {}
+};
 
 class GDOComponent : public Component {
 public:
@@ -309,7 +322,35 @@ public:
   void handle_external_tof_distance_(float distance_m);
   void publish_vehicle_state_(VehiclePresenceState state);
 
+  // Called from the static gdolib callback (on gdo_main_task). Copies the
+  // event into the lock-free queue for processing on loop() and returns
+  // immediately, keeping gdo_main_task's stack usage minimal.
+  bool enqueue_gdo_event(const gdo_status_t *status, gdo_cb_event_t event) {
+    GdoQueueEvent *qe = this->gdo_event_pool_.allocate();
+    if (qe == nullptr) {
+      this->gdo_event_queue_.increment_dropped_count();
+      return false;
+    }
+    qe->status = *status;
+    qe->event = event;
+    if (!this->gdo_event_queue_.push(qe)) {
+      this->gdo_event_pool_.release(qe);
+      return false;
+    }
+    return true;
+  }
+
+  // Heavy event processing (previously done directly in the gdolib callback).
+  // Runs on loop() (main loop task stack) instead of gdo_main_task's 4KB stack.
+  void process_gdo_event_(const gdo_status_t *status, gdo_cb_event_t event);
+
 protected:
+  // Sized so EventPool capacity (queue SIZE - 1) comfortably covers a burst of
+  // rapid events (e.g. duration/door-position updates during door movement).
+  static constexpr uint8_t GDO_EVENT_QUEUE_SIZE = 16;
+  EventPool<GdoQueueEvent, GDO_EVENT_QUEUE_SIZE - 1> gdo_event_pool_;
+  LockFreeQueue<GdoQueueEvent, GDO_EVENT_QUEUE_SIZE> gdo_event_queue_;
+
   gdo_status_t status_{};
   std::function<void(gdo_lock_state_t)> f_lock{nullptr};
   std::function<void(gdo_light_state_t)> f_light{nullptr};
