@@ -36,11 +36,13 @@ public:
   }
   void write_state(light::LightState *state) override {
     if (!this->synced_) {
+      ESP_LOGW(TAG, "Light command ignored: GDO not synced");
       return;
     }
     bool binary;
     state->current_values_as_binary(&binary);
 
+    ESP_LOGI(TAG, "Sending light %s action", binary ? "ON" : "OFF");
     // Use a simple timeout to defer the call instead of defer()
     // This ensures we don't block the web server thread
     this->set_timeout("light_action", 1, [binary]() {
