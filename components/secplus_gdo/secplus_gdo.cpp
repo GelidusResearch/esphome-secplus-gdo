@@ -82,7 +82,6 @@ namespace esphome
     {
       // Add safety checks to prevent panics
       if (!status || !arg) {
-        ESP_LOGE(TAG, "Invalid parameters in event handler: status=%p, arg=%p", status, arg);
         return;
       }
 
@@ -90,13 +89,11 @@ namespace esphome
 
       // Additional safety check for gdo pointer validity
       if (!gdo) {
-        ESP_LOGE(TAG, "Invalid GDO component pointer");
         return;
       }
 
-      if (!gdo->enqueue_gdo_event(status, event)) {
-        ESP_LOGW(TAG, "GDO event queue full, dropping event %d", event);
-      }
+      // Drops are counted by the queue and reported from loop()
+      gdo->enqueue_gdo_event(status, event);
     }
 
     void GDOComponent::process_gdo_event_(const gdo_status_t *status, gdo_cb_event_t event)
@@ -673,20 +670,62 @@ namespace esphome
       }
     }
 
+    // Re-reads the latched states from gdolib. Button presses and duration measurements are
+    // one-off edges, so they are not replayed here.
+    void GDOComponent::republish_status_()
+    {
+      gdo_status_t status;
+      if (gdo_get_status(&status) != ESP_OK) {
+        return;
+      }
+
+      if (status.synced) {
+        this->set_protocol_state(status.protocol);
+        if (status.protocol == GDO_PROTOCOL_SEC_PLUS_V2) {
+          this->set_client_id(status.client_id);
+          // Only move the stored rolling code forward, same as the SYNCED handler
+          if (status.rolling_code > this->get_rolling_code()) {
+            this->set_rolling_code(status.rolling_code);
+          }
+          this->set_openings(status.openings);
+          this->set_motion_state(status.motion);
+          this->set_motor_state(status.motor);
+        }
+      }
+
+      int32_t raw_pos = status.door_position;
+      if (raw_pos < 0) raw_pos = 0;
+      if (raw_pos > 10000) raw_pos = 10000;
+      float position = (float)(10000 - raw_pos) / 10000.0f;
+
+      gdo_door_state_t door = (gdo_door_state_t)status.door;
+      if ((status.door > GDO_DOOR_STATE_CLOSING && status.door < GDO_DOOR_STATE_OPENING) ||
+          status.door > GDO_DOOR_STATE_MAX) {
+        door = GDO_DOOR_STATE_OPEN;
+      }
+
+      this->set_sync_state(status.synced);
+      this->set_door_state(door, position);
+      this->set_light_state(status.light);
+      this->set_lock_state(status.lock);
+      this->set_obstruction(status.obstruction);
+    }
+
     void GDOComponent::loop()
     {
-      // Drain gdolib events queued by gdo_event_handler() (on gdo_main_task)
-      // and process them here, on the main loop task's much larger stack.
-      // Bounded to one queue's worth per iteration so a burst of events can't
-      // starve the rest of loop()/other components.
+      // Drain every gdolib event queued by gdo_event_handler() (on gdo_main_task) and process
+      // them here, on the main loop task's much larger stack.
       GdoQueueEvent *qe;
-      for (uint8_t i = 0; i < GDO_EVENT_QUEUE_SIZE && (qe = this->gdo_event_queue_.pop()) != nullptr; i++) {
+      while ((qe = this->gdo_event_queue_.pop()) != nullptr) {
         this->process_gdo_event_(&qe->status, qe->event);
         this->gdo_event_pool_.release(qe);
       }
       uint16_t dropped_gdo_events = this->gdo_event_queue_.get_and_reset_dropped_count();
       if (dropped_gdo_events > 0) {
-        ESP_LOGW(TAG, "Dropped %u GDO events (queue full)", dropped_gdo_events);
+        ESP_LOGW(TAG, "Dropped %u GDO events (queue full), republishing current status", dropped_gdo_events);
+      }
+      if (this->refresh_needed_.exchange(false, std::memory_order_relaxed)) {
+        this->republish_status_();
       }
 
 #if defined(GDO_DC_OPEN_PIN)

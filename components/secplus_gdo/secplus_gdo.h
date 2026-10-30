@@ -24,6 +24,7 @@
 #include "esphome/core/defines.h"
 #include "esphome/core/event_pool.h"
 #include "esphome/core/lock_free_queue.h"
+#include <atomic>
 #include "light/gdo_light.h"
 #include "lock/gdo_lock.h"
 #include "number/gdo_number.h"
@@ -329,12 +330,14 @@ public:
     GdoQueueEvent *qe = this->gdo_event_pool_.allocate();
     if (qe == nullptr) {
       this->gdo_event_queue_.increment_dropped_count();
+      this->refresh_needed_.store(true, std::memory_order_relaxed);
       return false;
     }
     qe->status = *status;
     qe->event = event;
     if (!this->gdo_event_queue_.push(qe)) {
       this->gdo_event_pool_.release(qe);
+      this->refresh_needed_.store(true, std::memory_order_relaxed);
       return false;
     }
     return true;
@@ -344,12 +347,17 @@ public:
   // Runs on loop() (main loop task stack) instead of gdo_main_task's 4KB stack.
   void process_gdo_event_(const gdo_status_t *status, gdo_cb_event_t event);
 
+  // Re-reads the latched states from gdolib after events were dropped
+  void republish_status_();
+
 protected:
   // Sized so EventPool capacity (queue SIZE - 1) comfortably covers a burst of
   // rapid events (e.g. duration/door-position updates during door movement).
   static constexpr uint8_t GDO_EVENT_QUEUE_SIZE = 32;
   EventPool<GdoQueueEvent, GDO_EVENT_QUEUE_SIZE - 1> gdo_event_pool_;
   LockFreeQueue<GdoQueueEvent, GDO_EVENT_QUEUE_SIZE> gdo_event_queue_;
+  // Set on the producer when an event is dropped; loop() then republishes the latched state
+  std::atomic<bool> refresh_needed_{false};
 
   gdo_status_t status_{};
   std::function<void(gdo_lock_state_t)> f_lock{nullptr};
