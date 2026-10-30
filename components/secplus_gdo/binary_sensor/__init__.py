@@ -40,6 +40,8 @@ TYPES = {
     "vehicle_parked": "register_vehicle_parked",
     "vehicle_arriving": "register_vehicle_arriving",
     "vehicle_leaving": "register_vehicle_leaving",
+    "dc_open_pin": "register_dc_open_pin_state",
+    "dc_close_pin": "register_dc_close_pin_state",
 }
 
 

@@ -19,8 +19,11 @@
 #include "include/gdo.h"
 #include "cover/gdo_door.h"
 #include "esphome/components/sensor/sensor.h"
+#include "esphome/components/text_sensor/text_sensor.h"
 #include "esphome/core/component.h"
 #include "esphome/core/defines.h"
+#include "esphome/core/event_pool.h"
+#include "esphome/core/lock_free_queue.h"
 #include "light/gdo_light.h"
 #include "lock/gdo_lock.h"
 #include "number/gdo_number.h"
@@ -30,6 +33,17 @@
 
 namespace esphome {
 namespace secplus_gdo {
+
+// Snapshot of a gdolib event, queued from gdo_main_task (small 4KB stack) and
+// drained/processed on GDOComponent::loop() (the much larger main loop task
+// stack). Keeps the gdolib callback itself tiny to avoid stack overflow on
+// gdo_main_task when handling deeply-nested event processing/logging.
+struct GdoQueueEvent {
+  gdo_status_t status;
+  gdo_cb_event_t event;
+  // Required by EventPool<T, SIZE>; no dynamically allocated members to free.
+  void release() {}
+};
 
 class GDOComponent : public Component {
 public:
@@ -96,6 +110,16 @@ public:
       f_tof_distance(tof_distance);
     }
   }
+
+  void register_firmware(std::function<void(std::string)> f) { f_firmware = f; }
+  void set_firmware(uint8_t major, uint8_t minor) {
+    if (f_firmware) {
+      char firmware_str[16];
+      snprintf(firmware_str, sizeof(firmware_str), "v%u.%u", major, minor);
+      f_firmware(std::string(firmware_str));
+    }
+  }
+
   void register_vehicle_parked(std::function<void(bool)> f) { f_vehicle_parked = f; }
   void register_vehicle_arriving(std::function<void(bool)> f) { f_vehicle_arriving = f; }
   void register_vehicle_leaving(std::function<void(bool)> f) { f_vehicle_leaving = f; }
@@ -120,6 +144,11 @@ public:
   volatile bool dc_light_toggle_pending_{false};
   uint32_t dc_light_last_toggle_ms_{0};
 #endif
+
+  // Expose the raw (debounced) dry contact sensor pin states independent of
+  // the derived door state, so they can be surfaced as binary sensors.
+  void register_dc_open_pin_state(std::function<void(bool)> f) { f_dc_open_pin_ = f; }
+  void register_dc_close_pin_state(std::function<void(bool)> f) { f_dc_close_pin_ = f; }
 
   void register_vehicle_parked_threshold(GDONumber *num) { this->vehicle_parked_threshold_ = num; }
   void set_external_tof_sensor(sensor::Sensor *sensor) { this->external_tof_sensor_ = sensor; }
@@ -233,6 +262,7 @@ public:
   }
 
   void register_toggle_only(GDOSwitch *sw) { this->toggle_only_switch_ = sw; }
+  //void register_toggle_ttc(GDOSwitch *sw) { this->toggle_ttc_switch_ = sw; }
   void register_obst_override(GDOSwitch *sw) { this->obst_override_switch_ = sw; }
   void register_close_notification(GDOSwitch *sw) { this->close_notification_switch_ = sw; }
   void set_sync_state(bool synced);
@@ -292,7 +322,35 @@ public:
   void handle_external_tof_distance_(float distance_m);
   void publish_vehicle_state_(VehiclePresenceState state);
 
+  // Called from the static gdolib callback (on gdo_main_task). Copies the
+  // event into the lock-free queue for processing on loop() and returns
+  // immediately, keeping gdo_main_task's stack usage minimal.
+  bool enqueue_gdo_event(const gdo_status_t *status, gdo_cb_event_t event) {
+    GdoQueueEvent *qe = this->gdo_event_pool_.allocate();
+    if (qe == nullptr) {
+      this->gdo_event_queue_.increment_dropped_count();
+      return false;
+    }
+    qe->status = *status;
+    qe->event = event;
+    if (!this->gdo_event_queue_.push(qe)) {
+      this->gdo_event_pool_.release(qe);
+      return false;
+    }
+    return true;
+  }
+
+  // Heavy event processing (previously done directly in the gdolib callback).
+  // Runs on loop() (main loop task stack) instead of gdo_main_task's 4KB stack.
+  void process_gdo_event_(const gdo_status_t *status, gdo_cb_event_t event);
+
 protected:
+  // Sized so EventPool capacity (queue SIZE - 1) comfortably covers a burst of
+  // rapid events (e.g. duration/door-position updates during door movement).
+  static constexpr uint8_t GDO_EVENT_QUEUE_SIZE = 16;
+  EventPool<GdoQueueEvent, GDO_EVENT_QUEUE_SIZE - 1> gdo_event_pool_;
+  LockFreeQueue<GdoQueueEvent, GDO_EVENT_QUEUE_SIZE> gdo_event_queue_;
+
   gdo_status_t status_{};
   std::function<void(gdo_lock_state_t)> f_lock{nullptr};
   std::function<void(gdo_light_state_t)> f_light{nullptr};
@@ -302,6 +360,14 @@ protected:
   std::function<void(bool)> f_button{nullptr};
   std::function<void(bool)> f_motor{nullptr};
   std::function<void(bool)> f_sync{nullptr};
+  std::function<void(bool)> f_dc_open_pin_{nullptr};
+  std::function<void(bool)> f_dc_close_pin_{nullptr};
+  bool dc_open_pin_state_{false};
+  bool dc_close_pin_state_{false};
+  bool dc_open_pin_state_valid_{false};
+  bool dc_close_pin_state_valid_{false};
+  uint32_t dc_open_pin_last_change_ms_{0};
+  uint32_t dc_close_pin_last_change_ms_{0};
 
   GDODoor *door_{nullptr};
   GDOLight *light_{nullptr};
@@ -316,6 +382,7 @@ protected:
   GDONumber *vehicle_parked_threshold_{nullptr};
   GDONumber *vehicle_parked_threshold_variance_{nullptr};
   std::function<void(uint16_t)> f_tof_distance{nullptr};
+  std::function<void(std::string)> f_firmware{nullptr};
   std::function<void(bool)> f_vehicle_parked{nullptr};
   std::function<void(bool)> f_vehicle_leaving{nullptr};
   std::function<void(bool)> f_vehicle_arriving{nullptr};

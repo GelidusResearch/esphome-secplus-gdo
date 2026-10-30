@@ -13,6 +13,7 @@ CONF_TYPE = "type"
 TYPES = {
     "learn": "register_learn",
     "toggle_only": "register_toggle_only",
+    "toggle_ttc": "register_toggle_ttc",
     "obst_override": "register_obst_override",
     "close_notification": "register_close_notification",
 }
@@ -36,6 +37,9 @@ async def to_code(config):
         await switch.register_switch(var, config)
     elif "toggle_only" in str(config[CONF_TYPE]):
         cg.add_define("GDO_TOGGLE_ONLY")
+        await switch.register_switch(var, config)
+    elif "toggle_ttc" in str(config[CONF_TYPE]):
+        cg.add_define("GDO_TOGGLE_TTC")
         await switch.register_switch(var, config)
     elif "close_notification" in str(config[CONF_TYPE]):
         cg.add_define("GDO_CLOSE_NOTIFY")

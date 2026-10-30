@@ -95,7 +95,7 @@ public:
       // Set appropriate default values based on the component type
       switch (this->number_type_) {
         case GDO_NUMBER_MIN_COMMAND_INTERVAL:
-          value = 50;
+          value = 250;
           ESP_LOGI("GDONumber", "No stored min_command_interval, using default: %.1f", value);
           break;
         case GDO_NUMBER_ROLLING_CODE:

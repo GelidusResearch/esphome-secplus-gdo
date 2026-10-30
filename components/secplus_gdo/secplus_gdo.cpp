@@ -74,6 +74,10 @@ namespace esphome
     static uint32_t duration_events = 0;
     static uint32_t last_diagnostic_time = 0;
 
+    // Thin producer: runs directly on gdo_main_task (gdolib's 4KB stack).
+    // Copies the event into the lock-free queue and returns immediately;
+    // all heavy processing/logging is deferred to process_gdo_event_(),
+    // which runs on loop() using the much larger main loop task stack.
     static void gdo_event_handler(const gdo_status_t *status, gdo_cb_event_t event, void *arg)
     {
       // Add safety checks to prevent panics
@@ -89,6 +93,16 @@ namespace esphome
         ESP_LOGE(TAG, "Invalid GDO component pointer");
         return;
       }
+
+      if (!gdo->enqueue_gdo_event(status, event)) {
+        ESP_LOGW(TAG, "GDO event queue full, dropping event %d", event);
+      }
+    }
+
+    void GDOComponent::process_gdo_event_(const gdo_status_t *status, gdo_cb_event_t event)
+    {
+      // Preserves the original gdo-> call sites below unchanged.
+      GDOComponent *gdo = this;
 
       if (status->protocol == GDO_PROTOCOL_SEC_PLUS_V2) {
         static uint32_t last_rc = 0;
@@ -251,6 +265,7 @@ namespace esphome
 
           // On sync success cancel the timeout
           gdo->cancel_operation("sync_timeout");
+          if ((status->protocol) == GDO_PROTOCOL_SEC_PLUS_V2) gdo_get_firmware();
           ESP_LOGI(TAG, "Sync successful, TX pin in normal operation mode");
         }
         gdo->set_sync_state(status->synced);
@@ -337,19 +352,24 @@ namespace esphome
       case GDO_CB_EVENT_OPENINGS:
         ESP_LOGI(TAG, "Openings: %d", status->openings);
         gdo->set_openings(status->openings);
-
+        break;
+      case GDO_CB_EVENT_HOLD_TTC:
+        ESP_LOGI(TAG, "TTC Held, auto close on hold.");
+        break;
+      case GDO_CB_EVENT_REL_TTC:
+        ESP_LOGI(TAG, "TTC Released, auto close after %d seconds when opened.", status->ttc_seconds);
         break;
       case GDO_CB_EVENT_SET_TTC:
-        ESP_LOGI(TAG, "Set Time to close: %d", status->ttc_seconds);
+        ESP_LOGI(TAG, "Set TTC: %d", status->ttc_seconds);
         break;
       case GDO_CB_EVENT_CANCEL_TTC:
-        ESP_LOGI(TAG, "Cancel Time to close: %d", status->ttc_seconds);
+        ESP_LOGI(TAG, "Current TTC is: %d", status->ttc_seconds);
         break;
       case GDO_CB_EVENT_UPDATE_TTC:
         ESP_LOGI(TAG, "Update Time to close: %d", status->ttc_seconds);
         if (status->ttc_seconds == 0) {
           // Use public defer method to avoid blocking in event handler
-          gdo->defer_operation("ttc_close", 10, []() {
+          gdo->defer_operation("ttc_close", 11, []() {
             gdo_door_close();
           });
         }
@@ -376,6 +396,14 @@ namespace esphome
         // Process duration directly to avoid defer operation crashes
         gdo->set_close_duration(status->close_ms);
         break;
+      case GDO_CB_EVENT_AUTO_LIGHT_MODE:
+        ESP_LOGI(TAG, "Motion Sensor Light Mode: %s", status->auto_light_enabled ? "enabled" : "disabled");
+        break;
+      case GDO_CB_EVENT_FIRMWARE:
+        ESP_LOGI(TAG,
+                 "Door Opener Firmware Ver: %d.%d", status->fw_major, status->fw_minor);
+        gdo->set_firmware(status->fw_major, status->fw_minor);
+        break;
       default:
         ESP_LOGI(TAG, "Unknown event: %d", event);
         break;
@@ -384,6 +412,13 @@ namespace esphome
 
     void GDOComponent::setup()
     {
+      // Pre-allocate every event pool slot up front (on the main loop task,
+      // which has ample stack/heap headroom) so enqueue_gdo_event(), called
+      // from gdo_main_task, never needs to malloc.
+      if (!this->gdo_event_pool_.warm()) {
+        ESP_LOGW(TAG, "Failed to fully warm GDO event pool; falling back to on-demand allocation");
+      }
+
 #ifdef GDO_TOGGLE_ONLY
       // Set the toggle only state and control here because we cannot guarantee the
       // cover instance was created before the switch
@@ -506,7 +541,6 @@ namespace esphome
       // GDOLIB will auto-detect the protocol during sync
       // The protocol select is only for manual override by the user
       // The detected protocol will be saved to NVS when sync succeeds
-
       // Initialize client ID and rolling code from stored values (if available)
       // This is essential for first-run and after reboot functionality
       ESP_LOGI(TAG, "Loading credentials from NVS...");
@@ -641,6 +675,54 @@ namespace esphome
 
     void GDOComponent::loop()
     {
+      // Drain gdolib events queued by gdo_event_handler() (on gdo_main_task)
+      // and process them here, on the main loop task's much larger stack.
+      // Bounded to one queue's worth per iteration so a burst of events can't
+      // starve the rest of loop()/other components.
+      GdoQueueEvent *qe;
+      for (uint8_t i = 0; i < GDO_EVENT_QUEUE_SIZE && (qe = this->gdo_event_queue_.pop()) != nullptr; i++) {
+        this->process_gdo_event_(&qe->status, qe->event);
+        this->gdo_event_pool_.release(qe);
+      }
+      uint16_t dropped_gdo_events = this->gdo_event_queue_.get_and_reset_dropped_count();
+      if (dropped_gdo_events > 0) {
+        ESP_LOGW(TAG, "Dropped %u GDO events (queue full)", dropped_gdo_events);
+      }
+
+#if defined(GDO_DC_OPEN_PIN)
+      {
+        // Pins are active-low; gdolib already configures them as GPIO inputs,
+        // so gpio_get_level() can be read directly without extra gpio_config().
+        bool active = gpio_get_level((gpio_num_t)GDO_DC_OPEN_PIN) == 0;
+        uint32_t now = millis();
+        if (!this->dc_open_pin_state_valid_ || active != this->dc_open_pin_state_) {
+          if (now - this->dc_open_pin_last_change_ms_ >= GDO_DC_DEBOUNCE_MS || !this->dc_open_pin_state_valid_) {
+            this->dc_open_pin_state_ = active;
+            this->dc_open_pin_state_valid_ = true;
+            this->dc_open_pin_last_change_ms_ = now;
+            if (this->f_dc_open_pin_) {
+              this->f_dc_open_pin_(active);
+            }
+          }
+        }
+      }
+#endif
+#if defined(GDO_DC_CLOSE_PIN)
+      {
+        bool active = gpio_get_level((gpio_num_t)GDO_DC_CLOSE_PIN) == 0;
+        uint32_t now = millis();
+        if (!this->dc_close_pin_state_valid_ || active != this->dc_close_pin_state_) {
+          if (now - this->dc_close_pin_last_change_ms_ >= GDO_DC_DEBOUNCE_MS || !this->dc_close_pin_state_valid_) {
+            this->dc_close_pin_state_ = active;
+            this->dc_close_pin_state_valid_ = true;
+            this->dc_close_pin_last_change_ms_ = now;
+            if (this->f_dc_close_pin_) {
+              this->f_dc_close_pin_(active);
+            }
+          }
+        }
+      }
+#endif
 #ifdef GDO_DC_LIGHT_PIN
       if (this->dc_light_toggle_pending_) {
         this->dc_light_toggle_pending_ = false;

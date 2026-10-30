@@ -19,6 +19,7 @@ namespace secplus_gdo {
 enum SwitchType {
   LEARN,
   TOGGLE_ONLY,
+  TOGGLE_TTC,
   OBST_OVERRIDE,
   CLOSE_NOTIFICATION,
 };
@@ -46,6 +47,16 @@ public:
       if (this->f_control) {
         this->f_control(state);
         this->pref_.save(&state);
+      }
+    }
+
+    if (this->type_ == SwitchType::TOGGLE_TTC) {
+      if (state) {
+        ESP_LOGI("GDOSwitch", "TTC Held, door will not auto-close");
+        //gdo_ttc_toggle(!state);
+      } else {
+        ESP_LOGI("GDOSwitch", "TTC Hold Released, door will auto-close.");
+        //gdo_ttc_toggle(!state);
       }
     }
 
