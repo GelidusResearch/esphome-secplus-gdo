@@ -347,7 +347,7 @@ public:
 protected:
   // Sized so EventPool capacity (queue SIZE - 1) comfortably covers a burst of
   // rapid events (e.g. duration/door-position updates during door movement).
-  static constexpr uint8_t GDO_EVENT_QUEUE_SIZE = 16;
+  static constexpr uint8_t GDO_EVENT_QUEUE_SIZE = 32;
   EventPool<GdoQueueEvent, GDO_EVENT_QUEUE_SIZE - 1> gdo_event_pool_;
   LockFreeQueue<GdoQueueEvent, GDO_EVENT_QUEUE_SIZE> gdo_event_queue_;
 
