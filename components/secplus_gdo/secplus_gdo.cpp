@@ -361,9 +361,13 @@ namespace esphome
         break;
       case GDO_CB_EVENT_SET_TTC:
         ESP_LOGI(TAG, "Set TTC: %d", status->ttc_seconds);
+        if (status->ttc_seconds == 0) {
+          gdo->set_time_to_close(status->ttc_seconds);
+        }
         break;
       case GDO_CB_EVENT_CANCEL_TTC:
-        ESP_LOGI(TAG, "Current TTC is: %d", status->ttc_seconds);
+        ESP_LOGI(TAG, "TTC cancelled, current TTC is: %d", status->ttc_seconds);
+        gdo->set_time_to_close(0);
         break;
       case GDO_CB_EVENT_UPDATE_TTC:
         ESP_LOGI(TAG, "Update Time to close: %d", status->ttc_seconds);

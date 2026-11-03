@@ -111,4 +111,7 @@ async def to_code(config):
     # Don't set control functions for duration types
     if config[CONF_TYPE] not in ["open_duration", "close_duration"]:
         text = "gdo_set_" + str(config[CONF_TYPE])
+        if config[CONF_TYPE] == "time_to_close":
+            # A TTC of zero means disabled, so send a TTC cancel command
+            text = "[](float v) { if (v == 0) { gdo_cancel_ttc(); } else { gdo_set_time_to_close((uint16_t)v); } }"
         cg.add(var.set_control_function(cg.RawExpression(text)))
