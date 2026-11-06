@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2024  Konnected Inc.
+ * Copyright (C) 2026 Gelidus Research
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -30,6 +31,7 @@
 #include "esphome/core/defines.h"
 #include "select/gdo_select.h"
 #include "switch/gdo_switch.h"
+#include "button/gdo_button.h"
 
 namespace esphome {
 namespace secplus_gdo {
@@ -108,6 +110,32 @@ public:
   void set_tof_distance(uint16_t tof_distance) {
     if (f_tof_distance) {
       f_tof_distance(tof_distance);
+    }
+  }
+
+  void register_ttc_state(std::function<void(std::string)> f) { f_ttc_state = f; }
+  void set_ttc_state(gdo_ttc_state_t state) {
+    if (!f_ttc_state || (has_ttc_state_ && state == ttc_state_)) {
+      return;
+    }
+    has_ttc_state_ = true;
+    ttc_state_ = state;
+    f_ttc_state(ttc_state_to_string(state));
+  }
+  static const char *ttc_state_to_string(gdo_ttc_state_t state) {
+    switch (state) {
+      case GDO_TTC_STATE_OFF:
+        return "Off";
+      case GDO_TTC_STATE_REL:
+        return "Released";
+      case GDO_TTC_STATE_COUNTDOWN:
+        return "Countdown";
+      case GDO_TTC_STATE_HOLD:
+        return "Held";
+      case GDO_TTC_STATE_ERROR:
+        return "Error";
+      default:
+        return "Unknown";
     }
   }
 
@@ -262,7 +290,6 @@ public:
   }
 
   void register_toggle_only(GDOSwitch *sw) { this->toggle_only_switch_ = sw; }
-  //void register_toggle_ttc(GDOSwitch *sw) { this->toggle_ttc_switch_ = sw; }
   void register_obst_override(GDOSwitch *sw) { this->obst_override_switch_ = sw; }
   void register_close_notification(GDOSwitch *sw) { this->close_notification_switch_ = sw; }
   void set_sync_state(bool synced);
@@ -383,6 +410,9 @@ protected:
   GDONumber *vehicle_parked_threshold_variance_{nullptr};
   std::function<void(uint16_t)> f_tof_distance{nullptr};
   std::function<void(std::string)> f_firmware{nullptr};
+  std::function<void(std::string)> f_ttc_state{nullptr};
+  gdo_ttc_state_t ttc_state_{GDO_TTC_STATE_OFF};
+  bool has_ttc_state_{false};
   std::function<void(bool)> f_vehicle_parked{nullptr};
   std::function<void(bool)> f_vehicle_leaving{nullptr};
   std::function<void(bool)> f_vehicle_arriving{nullptr};

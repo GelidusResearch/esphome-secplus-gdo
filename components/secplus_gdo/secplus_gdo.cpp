@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2024  Konnected Inc.
- * Copyright (C) 2025  Gelidus Research
+ * Copyright (C) 2026  Gelidus Research
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -191,7 +191,8 @@ namespace esphome
             ESP_LOGI(TAG, "VALID SYNC - Saving Rolling Code: %" PRIu32 " → now: %" PRIu32 ")",
                      current_rolling_code, status->rolling_code);
             gdo->set_client_id(status->client_id);
-            gdo->set_rolling_code(status->rolling_code);
+            gdo_set_rolling_code(status->rolling_code);
+            gdo_enable_ttc();
           } else {
             // Sync failed - only update if rolling code moved forward
             if (status->rolling_code > current_rolling_code) {
@@ -355,28 +356,30 @@ namespace esphome
         break;
       case GDO_CB_EVENT_HOLD_TTC:
         ESP_LOGI(TAG, "TTC Held, auto close on hold.");
+        gdo->set_ttc_state(status->ttc_state);
         break;
       case GDO_CB_EVENT_REL_TTC:
         ESP_LOGI(TAG, "TTC Released, auto close after %d seconds when opened.", status->ttc_seconds);
+        gdo->set_ttc_state(status->ttc_state);
         break;
       case GDO_CB_EVENT_SET_TTC:
         ESP_LOGI(TAG, "Set TTC: %d", status->ttc_seconds);
-        if (status->ttc_seconds == 0) {
-          gdo->set_time_to_close(status->ttc_seconds);
-        }
+        gdo->set_time_to_close(status->ttc_seconds);
+        break;
+      case GDO_CB_EVENT_PAIR_3:
+        ESP_LOGI(TAG, "Pair 3 Command received");
         break;
       case GDO_CB_EVENT_CANCEL_TTC:
-        ESP_LOGI(TAG, "TTC cancelled, current TTC is: %d", status->ttc_seconds);
+        ESP_LOGI(TAG, "TTC cancelled");
         gdo->set_time_to_close(0);
+        gdo->set_ttc_state(GDO_TTC_STATE_OFF);
         break;
       case GDO_CB_EVENT_UPDATE_TTC:
         ESP_LOGI(TAG, "Update Time to close: %d", status->ttc_seconds);
-        if (status->ttc_seconds == 0) {
-          // Use public defer method to avoid blocking in event handler
-          gdo->defer_operation("ttc_close", 11, []() {
-            gdo_door_close();
-          });
-        }
+        gdo->set_ttc_state(status->ttc_state);
+        break;
+      case GDO_CB_EVENT_TTC:
+        gdo->set_ttc_state(status->ttc_state);
         break;
       case GDO_CB_EVENT_PAIRED_DEVICES:
         ESP_LOGI(TAG,
