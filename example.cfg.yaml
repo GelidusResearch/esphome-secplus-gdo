@@ -34,6 +34,8 @@ esp32:
   framework:
     type: esp-idf
     version: recommended
+    advanced:
+      minimum_chip_revision: "3.1"
 
 esphome:
   name: ${id_prefix}
@@ -41,13 +43,14 @@ esphome:
   friendly_name: ${friendly_name}
   #project:
   #  name: gelidusresearch.garage-door-gdo-v2 #Required if using homebridge-ratgdo
-  #  version: "1.0"
+  #  version: "2.5"
   comment: "ESP32: Garage Door Opener"
-
+  on_boot:
+    - priority: -100
+      then:
+        - lambda: id(${id_prefix}).start_gdo();
 wifi:
   power_save_mode: none
-  on_connect:
-    lambda: id(${id_prefix}).start_gdo();
   ssid: !secret wifi_ssid
   password: !secret wifi_password
 
@@ -131,6 +134,17 @@ text_sensor:
   - platform: version
     name: ESPHome Version
     hide_timestamp: true
+  - platform: secplus_gdo
+    secplus_gdo_id: ${id_prefix}
+    id: gdo_firmware
+    type: firmware
+    name: "Garage Door Firmware"
+    entity_category: "diagnostic"
+  - platform: secplus_gdo
+    secplus_gdo_id: ${id_prefix}
+    id: gdo_ttc_state
+    type: ttc_state
+    name: "TTC State"
 
 sensor:
   - platform: secplus_gdo
@@ -423,6 +437,11 @@ number:
 #    unit_of_measurement: "cm"
 
 button:
+  - platform: secplus_gdo
+    id: gdo_ttc_hold_release
+    secplus_gdo_id: ${id_prefix}
+    name: TTC Hold - Release
+    icon: mdi:timer-outline
   - platform: restart
     name: Restart
     id: restart_button
