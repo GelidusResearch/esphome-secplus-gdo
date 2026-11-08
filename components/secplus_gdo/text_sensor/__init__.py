@@ -1,6 +1,7 @@
 """
 /*
  * Copyright (C) 2024  Konnected Inc.
+ * Copyright (C) 2026 Gelidus Research
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -31,6 +32,7 @@ GDOTextSensor = secplus_gdo_ns.class_("GDOTextSensor", text_sensor.TextSensor, c
 CONF_TYPE = "type"
 TYPES = {
     "firmware": "register_firmware",
+    "ttc_state": "register_ttc_state",
 }
 
 

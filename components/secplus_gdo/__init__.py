@@ -1,7 +1,7 @@
 """
 /*
  * Copyright (C) 2024  Konnected Inc.
- * Copyright (C) 2024  Gelidus Research
+ * Copyright (C) 2026  Gelidus Research
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -98,6 +98,6 @@ async def to_code(config):
 
     cg.add_library(
         name="GDOLIB",
-        repository="https://github.com/gelidusresearch/gdolib.git#v1.2.10",
-        version="1.2.10",
+        repository="https://github.com/gelidusresearch/gdolib.git#v1.2.11",
+        version="1.2.11",
     )
