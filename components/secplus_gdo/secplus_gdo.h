@@ -20,7 +20,6 @@
 #include "include/gdo.h"
 #include "cover/gdo_door.h"
 #include "esphome/components/sensor/sensor.h"
-#include "esphome/components/text_sensor/text_sensor.h"
 #include "esphome/core/component.h"
 #include "esphome/core/defines.h"
 #include "esphome/core/event_pool.h"
@@ -31,7 +30,6 @@
 #include "esphome/core/defines.h"
 #include "select/gdo_select.h"
 #include "switch/gdo_switch.h"
-#include "button/gdo_button.h"
 
 namespace esphome {
 namespace secplus_gdo {
@@ -134,6 +132,8 @@ public:
         return "Held";
       case GDO_TTC_STATE_ERROR:
         return "Error";
+      case GDO_TTC_STATE_OPENWAIT:
+        return "Open Wait";
       default:
         return "Unknown";
     }
