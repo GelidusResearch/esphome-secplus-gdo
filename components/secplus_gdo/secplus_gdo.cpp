@@ -375,7 +375,7 @@ namespace esphome
         gdo->set_ttc_state(GDO_TTC_STATE_OFF);
         break;
       case GDO_CB_EVENT_UPDATE_TTC:
-        ESP_LOGI(TAG, "Update Time to close: %d", status->ttc_seconds);
+        ESP_LOGI(TAG, "Update Time to close: %d", status->ttc_countdown);
         gdo->set_ttc_state(status->ttc_state);
         break;
       case GDO_CB_EVENT_TTC:
