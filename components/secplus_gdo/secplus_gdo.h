@@ -126,14 +126,14 @@ public:
         return "Off";
       case GDO_TTC_STATE_REL:
         return "Released";
-      case GDO_TTC_STATE_COUNTDOWN:
-        return "Countdown";
+      case GDO_TTC_STATE_ALARM:
+        return "Alarm";
       case GDO_TTC_STATE_HOLD:
         return "Held";
       case GDO_TTC_STATE_ERROR:
         return "Error";
-      case GDO_TTC_STATE_OPENWAIT:
-        return "Open Wait";
+      case GDO_TTC_STATE_COUNTDOWN:
+        return "Countdown";
       default:
         return "Unknown";
     }
